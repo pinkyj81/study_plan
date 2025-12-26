@@ -158,11 +158,11 @@
               {% set color_style = "" %}
               {% if d.color %}
                 {% if d.status == 'done' %}
-                  {% set color_style = "background-color: " + d.color + "; filter: brightness(0.85) saturate(1.4); color: #fff; font-weight: 600;" %}
+                  {% set color_style = "background-color: " + d.color + "; color: #ffffff; font-weight: 700; border: 2px solid " + d.color + ";" %}
                 {% elif d.status == 'partial' %}
-                  {% set color_style = "background-color: " + d.color + "; filter: brightness(0.9) saturate(1.1); color: #333; font-weight: 500;" %}
+                  {% set color_style = "background-color: " + d.color + "; color: #2f2a55; font-weight: 600; border: 2px solid " + d.color + ";" %}
                 {% else %}
-                  {% set color_style = "background-color: " + d.color + "; color: #333; font-weight: 500;" %}
+                  {% set color_style = "background-color: transparent; color: #333; font-weight: 500; border: 2px solid " + d.color + ";" %}
                 {% endif %}
               {% endif %}
               <div class="aspect-square flex items-center justify-center rounded-lg border text-sm cursor-pointer
@@ -620,20 +620,24 @@
       calendarCells.forEach(cell => {
         const status = cell.dataset.status;
         
-        cell.style.backgroundColor = color;
-        
         if (status === 'done') {
-          cell.style.filter = 'brightness(0.85) saturate(1.4)';
+          cell.style.backgroundColor = color;
+          cell.style.filter = 'brightness(1.0) saturate(1.4)';
           cell.style.color = '#fff';
-          cell.style.fontWeight = '600';
+          cell.style.fontWeight = '700';
+          cell.style.border = `2px solid ${color}`;
         } else if (status === 'partial') {
-          cell.style.filter = 'brightness(0.9) saturate(1.1)';
+          cell.style.backgroundColor = color;
+          cell.style.filter = 'brightness(1.1) saturate(1.1)';
           cell.style.color = '#333';
-          cell.style.fontWeight = '500';
+          cell.style.fontWeight = '600';
+          cell.style.border = `2px solid ${color}`;
         } else {
+          cell.style.backgroundColor = 'transparent';
           cell.style.filter = '';
           cell.style.color = '#333';
           cell.style.fontWeight = '500';
+          cell.style.border = `2px solid ${color}`;
         }
       });
     });
