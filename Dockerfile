@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install system deps and MS ODBC Driver 17 for SQL Server
+# Install system deps and MS ODBC Driver 17 for SQL Server (Debian 12)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
@@ -16,10 +16,10 @@ RUN apt-get update \
         gcc \
         g++ \
         unixodbc-dev \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && echo "deb [arch=amd64] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft.list \
+    && curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg \
+    && curl https://packages.microsoft.com/config/debian/12/prod.list > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends msodbcsql17 \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql17 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
