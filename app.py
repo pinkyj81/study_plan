@@ -15,13 +15,13 @@ init_db(app)
 
 # 파스텔 색상 팔레트
 PLAN_COLORS = [
-    '#FFB3BA',  # pastel pink
-    '#FFDFBA',  # pastel orange
-    '#FFFFBA',  # pastel yellow
-    '#BAFFC9',  # pastel green
-    '#BAE1FF',  # pastel blue
-    '#D4BEEE',  # deeper purple
-    '#FFDFD3',  # pastel peach
+    '#FFE5E9',  # soft pastel pink
+    '#FFF0E0',  # soft pastel orange
+    '#FFFDE7',  # soft pastel yellow
+    '#E8F8E8',  # soft pastel green
+    '#E8F4FF',  # soft pastel blue
+    '#F0E5F9',  # soft pastel purple
+    '#FFF0EB',  # soft pastel peach
 ]
 
 # 로그인 체크 데코레이터
@@ -341,11 +341,13 @@ def day_detail(day_id):
             FROM dbo.study_plan_task t
             JOIN dbo.study_plan p ON t.plan_id = p.plan_id
             WHERE t.plan_date = :date
+              AND p.user_id = :user_id
               AND (:plan_id IS NULL OR p.plan_id = :plan_id)
             ORDER BY t.order_no
         """)
         
-        result = db.session.execute(query, {"date": date_str, "plan_id": plan_id_param}).fetchall()
+        user_id = session.get('user_id', 1)
+        result = db.session.execute(query, {"date": date_str, "user_id": user_id, "plan_id": plan_id_param}).fetchall()
         
         # 해당 날짜에 작업이 있는 경우
         if result:
@@ -467,7 +469,13 @@ def create_plan():
     user_id = session.get('user_id', 1)
     
     try:
-        # DB에 새 계획 추가
+        title = data.get("title")
+        subject = data.get("subject")
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+        selected_weekdays = data.get("selected_weekdays", [])
+        
+        # 1. DB에 새 계획 추가
         insert_query = text("""
             INSERT INTO dbo.study_plan (user_id, title, subject, created_at)
             VALUES (:user_id, :title, :subject, SYSDATETIMEOFFSET())
@@ -475,8 +483,8 @@ def create_plan():
         
         db.session.execute(insert_query, {
             "user_id": user_id,
-            "title": data["title"],
-            "subject": data["subject"]
+            "title": title,
+            "subject": subject
         })
         db.session.commit()
         
@@ -484,6 +492,38 @@ def create_plan():
         id_query = text("SELECT MAX(plan_id) as new_id FROM dbo.study_plan")
         result = db.session.execute(id_query).fetchone()
         new_plan_id = result.new_id
+        
+        # 2. 날짜 범위와 요일이 제공된 경우 빈 task 생성
+        if start_date_str and end_date_str and selected_weekdays:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            
+            weekday_map = {
+                "mon": 0, "tue": 1, "wed": 2, "thu": 3,
+                "fri": 4, "sat": 5, "sun": 6
+            }
+            allowed_weekdays = {weekday_map[w] for w in selected_weekdays if w in weekday_map}
+            
+            if allowed_weekdays:
+                task_insert = text("""
+                    INSERT INTO dbo.study_plan_task (plan_id, plan_date, task_title, order_no, created_at)
+                    VALUES (:plan_id, :plan_date, :task_title, :order_no, SYSDATETIMEOFFSET())
+                """)
+                
+                current_date = start_date
+                order = 1
+                while current_date <= end_date:
+                    if current_date.weekday() in allowed_weekdays:
+                        db.session.execute(task_insert, {
+                            "plan_id": new_plan_id,
+                            "plan_date": current_date,
+                            "task_title": f"{title} - Day {order}",
+                            "order_no": order
+                        })
+                        order += 1
+                    current_date = current_date + timedelta(days=1)
+                
+                db.session.commit()
         
         return jsonify({
             "ok": True,

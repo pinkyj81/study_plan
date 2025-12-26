@@ -207,6 +207,20 @@
       <label class="block text-sm font-medium mb-1">과목명</label>
       <input id="planSubject" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: 영어">
 
+      <div class="mb-3">
+        <span class="block text-sm font-medium mb-2">요일 선택</span>
+        <div class="flex gap-3 text-sm">
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="mon" checked>월</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="tue" checked>화</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="wed" checked>수</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="thu" checked>목</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="fri" checked>금</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="sat" checked>토</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="plan-weekday-checkbox" value="sun" checked>일</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">선택한 요일만 학습 계획이 배치됩니다.</p>
+      </div>
+
       <div class="flex gap-4 mb-3">
         <div class="flex-1">
           <label class="block text-sm font-medium mb-1">시작일</label>
@@ -1216,8 +1230,14 @@
       const subject = document.getElementById("planSubject").value.trim();
       const start = document.getElementById("planStart").value;
       const end = document.getElementById("planEnd").value;
+      const selectedWeekdays = Array.from(document.querySelectorAll('.plan-weekday-checkbox:checked')).map(cb => cb.value);
+      
       if (!title || !subject || !start || !end) {
         alert("모든 항목을 입력해주세요!");
+        return;
+      }
+      if (selectedWeekdays.length === 0) {
+        alert("요일을 최소 1개 선택하세요!");
         return;
       }
       
@@ -1229,7 +1249,8 @@
             title: title,
             subject: subject,
             start_date: start,
-            end_date: end
+            end_date: end,
+            selected_weekdays: selectedWeekdays
           })
         });
         
