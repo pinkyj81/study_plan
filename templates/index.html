@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>자기주도 학습 캘린더</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 계획별 색상 */
+    .plan-color-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    
+    /* 색상 테마 변수 - 기본: 그린 */
+    :root {
+      --color-today: #14b8a6;
+      --color-done: #10b981;
+      --color-partial: #84cc16;
+      --color-planned: #86efac;
+      --color-missed: #15803d;
+    }
+
+    /* 블루 테마 */
+    body.theme-blue {
+      --color-today: #2563eb;
+      --color-done: #3b82f6;
+      --color-partial: #60a5fa;
+      --color-planned: #93c5fd;
+      --color-missed: #1e40af;
+    }
+
+    /* 코럴 테마 */
+    body.theme-coral {
+      --color-today: #C93A34;
+      --color-done: #F05C55;
+      --color-partial: #FF8F8A;
+      --color-planned: #FFB8B4;
+      --color-missed: #FFE3E1;
+    }
+
+    /* 색상 클래스 적용 */
+    .color-today { background-color: var(--color-today); }
+    .color-done { background-color: var(--color-done); }
+    .color-partial { background-color: var(--color-partial); }
+    .color-planned { background-color: var(--color-planned); }
+    .color-missed { background-color: var(--color-missed); }
+
+    .status-today { background-color: var(--color-today) !important; }
+    .status-done { background-color: var(--color-done) !important; }
+    .status-partial { background-color: var(--color-partial) !important; }
+    .status-planned { background-color: var(--color-planned) !important; }
+    .status-missed { background-color: var(--color-missed) !important; }    .status-today { background-color: #3b82f6; color: white; }
+    .status-done { background-color: #10b981; color: white; }
+    .status-partial { background-color: #fbbf24; color: white; }
+    .status-planned { background-color: #9ca3af; color: white; }
+    .status-missed { background-color: #ef4444; color: white; }
+    .status-none { background-color: transparent; }
+  </style>
+</head>
+<body class="bg-blue-50 min-h-screen">
+  <div class="max-w-6xl mx-auto p-8">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800">자기주도 학습 캘린더</h1>
+        <p class="text-gray-600">{{ year }}년 {{ summary.total }}일의 학습 여정을 시작하세요</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="text-sm text-gray-600">👤 <strong>{{ session.user_name }}</strong>님</span>
+        <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+          로그아웃
+        </a>
+      </div>
+    </div>
+
+    <!-- 년도 선택 -->
+    <div class="flex justify-center mb-4">
+      <div class="bg-white px-6 py-3 rounded-xl shadow-md">
+        <label class="text-sm font-medium text-gray-700 mr-3">학습 년도:</label>
+        <select id="yearSelector" class="border border-gray-300 rounded-lg px-4 py-2 text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+          {% for y in available_years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- 범례 -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-8">
+      <div class="mb-3">
+        <span class="text-sm font-semibold text-gray-700">계획별 색상</span>
+      </div>
+      <div class="flex justify-center items-center gap-6 flex-wrap">
+        {% for p in plans %}
+        <div class="flex items-center gap-2">
+          <div class="w-4 h-4 rounded-full" style="background-color: {{ p.color }};"></div>
+          <span class="text-sm">{{ p.title }}</span>
+        </div>
+        {% endfor %}
+        <div class="flex items-center gap-2">
+          <div class="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+          <span class="text-sm">계획 없음</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 학습 계획 선택 -->
+    <div class="bg-white p-4 rounded-2xl shadow mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold">학습 계획 선택</h2>
+        <div class="flex gap-3">
+          <button id="openManagePlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">계획수정</button>
+          <button id="openPlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">+ 새 계획</button>
+          <button id="openCreateTemplateModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">새 템플릿</button>
+          <button id="openTemplateManageModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">템플릿 수정</button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mb-4">
+        <label for="planFilterSelect" class="text-sm font-semibold text-gray-700">캘린더 표시:</label>
+        <select id="planFilterSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-60">
+          <option value="">모든 계획</option>
+          {% for p in plans %}
+            <option value="{{ p.plan_id }}" style="background: linear-gradient(90deg, {{ p.color }} 12px, white 12px);">
+              ● {{ p.title }} ({{ p.subject }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="flex gap-4 flex-wrap">
+        {% for p in plans %}
+          <div class="border p-4 rounded-xl w-72 hover:shadow-md plan-card" data-plan-id="{{ p.plan_id }}" style="border-left: 4px solid {{ p.color }}; background: linear-gradient(135deg, {{ p.color }}10 0%, white 100%);">
+            <div class="font-semibold mb-1">
+              <span class="plan-color-indicator" style="background-color: {{ p.color }};"></span>{{ p.title }}
+            </div>
+            <div class="text-sm text-gray-500">과목: {{ p.subject }}</div>
+            <div class="text-xs text-gray-400">일일 계획: {{ p.days|length }}개</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 달력 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {% for m in range(1, 13) %}
+      <div class="bg-white rounded-2xl shadow p-4">
+        <h2 class="text-center font-semibold mb-3 text-lg">{{ m }}월</h2>
+        <div class="grid grid-cols-7 text-center text-sm font-medium mb-2">
+          <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+        </div>
+        <div class="grid grid-cols-7 gap-1">
+          {% for d in calendar_data.get(m, []) %}
+            {% if d %}
+              {% set color_style = "" %}
+              {% if d.color %}
+                {% if d.status == 'done' %}
+                  {% set color_style = "background-color: " + d.color + "; filter: brightness(0.85) saturate(1.4); color: #fff; font-weight: 600;" %}
+                {% elif d.status == 'partial' %}
+                  {% set color_style = "background-color: " + d.color + "; filter: brightness(0.9) saturate(1.1); color: #333; font-weight: 500;" %}
+                {% else %}
+                  {% set color_style = "background-color: " + d.color + "; color: #333; font-weight: 500;" %}
+                {% endif %}
+              {% endif %}
+              <div class="aspect-square flex items-center justify-center rounded-lg border text-sm cursor-pointer
+                  {% if d.color %}status-plan-color{% else %}status-none{% endif %}"
+                  data-day-id="{{ d.day_id }}"
+                  data-plan-id="{{ d.plan_id }}"
+                  data-status="{{ d.status }}"
+                  {% if color_style %}style="{{ color_style }}"{% endif %}>
+                {{ d.date.day }}
+              </div>
+            {% else %}
+              <div class="aspect-square"></div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 새 계획 / 불러오기 선택 모달 -->
+  <div id="planChoiceModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[360px] shadow-lg relative text-center">
+      <button id="closePlanChoiceModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800">✕</button>
+      <h2 class="text-lg font-bold mb-5">학습 계획 추가</h2>
+      <div class="flex flex-col gap-3">
+        <button id="openNewPlan" class="bg-blue-500 hover:bg-blue-600 text-white py-2 rounded">새 계획 만들기</button>
+        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded">기존 계획 불러오기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 학습 계획 추가 모달 -->
+  <div id="planModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[460px] shadow-lg relative">
+      <button id="closePlanModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800">✕</button>
+      <h2 class="text-lg font-bold mb-4 text-center">새 학습 계획 추가</h2>
+
+      <label class="block text-sm font-medium mb-1">계획 제목</label>
+      <input id="planTitle" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: TOEFL 단어 외우기">
+
+      <label class="block text-sm font-medium mb-1">과목명</label>
+      <input id="planSubject" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: 영어">
+
+      <div class="flex gap-4 mb-3">
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">시작일</label>
+          <input id="planStart" type="date" class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">종료일</label>
+          <input id="planEnd" type="date" class="w-full border rounded px-2 py-1">
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button id="savePlanBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 템플릿 불러오기 모달 -->
+  <div id="loadTemplateModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[560px] shadow-lg relative">
+      <button id="closeLoadTemplateModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800">✕</button>
+      <h2 class="text-lg font-bold mb-4 text-center">템플릿에서 계획 불러오기</h2>
+
+      <label class="block text-sm font-medium mb-1">사용할 템플릿 선택</label>
+      <select id="loadTemplatePlanSelect" class="w-full border rounded px-2 py-1 mb-3">
+        <option value="">-- 템플릿 선택 --</option>
+      </select>
+
+      <label class="block text-sm font-medium mb-1">새 계획 제목</label>
+      <input id="loadTemplateTitle" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: 2025년 1월 TOEFL">
+
+      <label class="block text-sm font-medium mb-1">과목명</label>
+      <input id="loadTemplateSubject" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: 영어">
+
+      <div class="flex gap-4 mb-3">
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">시작일</label>
+          <input id="loadTemplateStart" type="date" class="w-full border rounded px-2 py-1">
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">종료일</label>
+          <input id="loadTemplateEnd" type="date" class="w-full border rounded px-2 py-1">
+        </div>
+      </div>
+
+      <div class="text-xs text-gray-500 mb-4">선택한 계획의 템플릿을 날짜 범위로 나누어 일일 계획을 생성합니다.</div>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelLoadTemplate" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded">취소</button>
+        <button id="confirmLoadTemplate" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">생성</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 학습 계획 관리 모달 -->
+  <div id="managePlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-lg relative">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <h2 class="text-2xl font-bold">학습 계획 관리</h2>
+        <button id="closeManagePlanModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+      
+      <div class="p-6">
+        <p class="text-gray-600 mb-6">원하신 새로 계획을 생성한 후 제 계획을 환영합니다.</p>
+
+        <!-- 통계 카드 -->
+        <div class="grid grid-cols-4 gap-4 mb-8" id="statsContainer">
+          <div class="bg-white rounded-xl shadow p-6 text-center border">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ stats.total_plans }}</div>
+            <div class="text-sm text-gray-600">전체 계획</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-6 text-center border">
+            <div class="text-3xl font-bold text-green-600 mb-2">{{ stats.total_assigned }}</div>
+            <div class="text-sm text-gray-600">총 할당 계획</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-6 text-center border">
+            <div class="text-3xl font-bold text-purple-600 mb-2">{{ stats.completed }}</div>
+            <div class="text-sm text-gray-600">완료된 계획</div>
+          </div>
+          <div class="bg-white rounded-xl shadow p-6 text-center border">
+            <div class="text-3xl font-bold text-orange-600 mb-2">{{ stats.completion_rate }}%</div>
+            <div class="text-sm text-gray-600">완료율</div>
+          </div>
+        </div>
+
+        <!-- 계획 목록 -->
+        <div class="space-y-4" id="plansContainer">
+          {% for plan in plans %}
+          <div class="bg-white rounded-xl shadow p-6 {{ 'border-blue-500 ring-2 ring-blue-200' if active_plan and plan.plan_id == active_plan.plan_id else 'hover:border-blue-400' }}" style="border-left: 4px solid {{ plan.color }}; background: linear-gradient(135deg, {{ plan.color }}10 0%, white 100%);" data-plan-id="{{ plan.plan_id }}">
+            <div class="flex justify-between items-start gap-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="plan-color-indicator" style="background-color: {{ plan.color }};"></span>
+                  <h3 class="text-xl font-bold">{{ plan.title }}</h3>
+                  <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">본문</span>
+                </div>
+                <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                  <div>
+                    <span class="mr-1">📚 과목:</span>
+                    <span class="font-medium">{{ plan.subject }}</span>
+                  </div>
+                  <div>
+                    <span class="mr-1">📅 생성일:</span>
+                    <span>{{ plan.start_date }}</span>
+                  </div>
+                  <div>
+                    <span class="mr-1">📈 진도:</span>
+                    <span>18/38</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-start gap-2 flex-shrink-0">
+                <button type="button" class="toggle-daily-plan-modal bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">
+                  ▼ 상세계획 ({{ plan.daily_plans|length }})
+                </button>
+                <button type="button" class="edit-plan-btn-modal text-blue-600 hover:text-blue-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="수정">✏️</button>
+                <button type="button" class="delete-plan-btn-modal text-red-600 hover:text-red-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="삭제">🗑️</button>
+              </div>
+            </div>
+
+            <!-- 일일 계획 편집 섹션 -->
+            <div class="daily-plan-section-modal hidden mt-6 border-t pt-6" data-plan-id="{{ plan.plan_id }}">
+              <h4 class="font-semibold mb-4">일일 계획 편집</h4>
+              
+              <div class="flex gap-2 mb-4">
+                <button class="add-row-btn-modal bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">+ 행 추가</button>
+                <button class="save-daily-plan-btn-modal bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">저장</button>
+                <button class="cancel-edit-btn-modal bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">취소</button>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="daily-plan-table-modal-{{ plan.plan_id }}">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-2 text-left">학습 날짜</th>
+                      <th class="px-4 py-2 text-left">순서</th>
+                      <th class="px-4 py-2 text-left">학습 내용 설명</th>
+                      <th class="px-4 py-2 text-left">링크</th>
+                      <th class="px-4 py-2 text-left">상태</th>
+                      <th class="px-4 py-2 text-center">삭제</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y">
+                    <!-- 동적으로 로드됨 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 계획 편집 모달 -->
+  <div id="editPlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-2xl shadow-lg relative">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <h2 class="text-2xl font-bold">계획 편집</h2>
+        <button id="closeEditPlanModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-2">계획 제목</label>
+          <input id="editPlanTitle" type="text" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-2">과목명</label>
+          <input id="editPlanSubject" type="text" class="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium mb-3">색상 선택</label>
+          <div class="grid grid-cols-7 gap-3" id="colorPicker">
+            <!-- 동적으로 생성됨 -->
+          </div>
+        </div>
+
+        <div class="flex gap-3 justify-end pt-4 border-t">
+          <button id="cancelEditPlan" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium">취소</button>
+          <button id="saveEditPlan" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 템플릿 관리 모달 (iframe으로 기존 페이지 로드) -->
+  <div id="templateManageModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-6xl h-[85vh] shadow-lg relative overflow-hidden">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+        <h2 class="text-2xl font-bold">템플릿 관리</h2>
+        <button id="closeTemplateManageModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+      <iframe id="templateManageFrame" class="w-full h-[calc(85vh-64px)]" src="" title="템플릿 관리"></iframe>
+    </div>
+  </div>
+
+  <!-- 학습 실적 모달 -->
+  <div id="dayModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[500px] shadow-lg relative">
+      <button id="closeModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800">✕</button>
+      <h2 id="modalDate" class="text-lg font-bold mb-4">날짜</h2>
+      
+      <!-- 작업 리스트 -->
+      <div id="taskList" class="space-y-3 mb-4">
+        <!-- 동적으로 생성됨 -->
+      </div>
+      
+      <div class="flex justify-end">
+        <button id="closeModalBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 새 템플릿 만들기 모달 -->
+  <div id="createTemplateModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[800px] max-h-[90vh] overflow-y-auto shadow-lg relative">
+      <button id="closeCreateTemplateModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+      <h2 class="text-xl font-bold mb-4">새 템플릿 만들기</h2>
+      
+      <!-- 템플릿 기본 정보 -->
+      <div class="mb-6 space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">템플릿 제목 *</label>
+          <input type="text" id="newTemplateTitle" placeholder="예: TOEFL 영단어 공부"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">과목</label>
+          <input type="text" id="newTemplateSubject" placeholder="예: 영어"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">설명</label>
+          <textarea id="newTemplateDescription" rows="2" placeholder="템플릿 설명을 입력하세요"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+      </div>
+
+      <!-- 빠른 입력: 파일 업로드 / 붙여넣기 -->
+      <div class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- CSV 파일 업로드 -->
+          <div class="border rounded-lg p-4">
+            <div class="font-semibold mb-3">파일 업로드 (.csv)</div>
+            <input id="createTemplateFile" type="file" accept=".csv" class="mb-3 w-full" />
+            <button id="createTemplateImportBtn" class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded">항목에 추가</button>
+            <p class="text-xs text-gray-500 mt-2">CSV 헤더 예: title,link_url</p>
+          </div>
+          <!-- 텍스트 붙여넣기 -->
+          <div class="border rounded-lg p-4">
+            <div class="font-semibold mb-3">붙여넣기 (행당 제목,링크 또는 탭)</div>
+            <textarea id="createTemplatePaste" rows="4" class="w-full border rounded px-2 py-1 mb-3" placeholder="예) 단어암기&#10;https://example..."></textarea>
+            <button id="createTemplatePasteBtn" class="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded">항목에 추가</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 템플릿 항목 목록 -->
+      <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <label class="text-sm font-medium text-gray-700">템플릿 항목 (<span id="templateItemCount">0</span>개)</label>
+          <button id="addTemplateItemBtn" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+            + 항목 추가
+          </button>
+        </div>
+        <div id="templateItemsList" class="space-y-3 max-h-[300px] overflow-y-auto">
+          <!-- 템플릿 항목들이 동적으로 추가됩니다 -->
+        </div>
+        <div class="mt-3 flex justify-end">
+          <button id="clearTemplateItemsBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-sm">항목 모두 비우기</button>
+        </div>
+      </div>
+
+      <!-- 저장 버튼 -->
+      <div class="flex justify-end gap-3 mt-6">
+        <button id="cancelCreateTemplateBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg">취소</button>
+        <button id="saveCreateTemplateBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 템플릿 관리 모달 -->
+  <div id="templateModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[720px] shadow-lg relative">
+      <button id="closeTemplateModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800">✕</button>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold">템플릿 관리</h2>
+      </div>
+      <p class="text-sm text-gray-600 mb-1">CSV/Excel 업로드 또는 붙여넣기로 템플릿 작업을 추가하세요. 업로드/붙여넣기에서는 메모를 제외하고 제목과 링크만 처리합니다.</p>
+      <div id="templateStatus" class="text-xs text-gray-500 mb-3"></div>
+
+      <div class="grid grid-cols-1 gap-6">
+        <!-- 파일 업로드 -->
+        <div class="border rounded-lg p-4">
+          <div class="font-semibold mb-2">파일 업로드 (.csv, .xlsx)</div>
+          <input id="templateFile" type="file" accept=".csv,.xlsx" class="mb-3" />
+          <button id="uploadTemplateBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">업로드</button>
+          <p class="text-xs text-gray-500 mt-2">CSV 헤더 예: title,link_url</p>
+        </div>
+
+        <!-- 붙여넣기 -->
+        <div class="border rounded-lg p-4">
+          <div class="font-semibold mb-2">붙여넣기 (행당 "제목,링크" 또는 탭 구분)</div>
+          <textarea id="templatePaste" rows="8" class="w-full border rounded px-2 py-1" placeholder="예) 01. ABC  https://...\..."></textarea>
+          <button id="savePasteBtn" class="mt-3 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">붙여넣기 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script>
+  // 계획 데이터를 JavaScript에서 접근할 수 있도록 준비
+  const plansDataMap = {
+    {% for p in plans %}
+    "{{ p.plan_id }}": {
+      "title": "{{ p.title }}",
+      "subject": "{{ p.subject }}",
+      "color": "{{ p.color }}"
+    }{{ "," if not loop.last }}
+    {% endfor %}
+  };
+  
+  // localStorage에서 저장된 계획 색상 불러오기
+  function loadPlanColorsFromStorage() {
+    try {
+      const savedColors = JSON.parse(localStorage.getItem('planColors') || '{}');
+      Object.keys(savedColors).forEach(planId => {
+        if (plansDataMap[planId]) {
+          plansDataMap[planId].color = savedColors[planId];
+        }
+      });
+    } catch (e) {
+      console.log('색상 로드 오류:', e);
+    }
+  }
+  
+  // 계획 색상 저장
+  function savePlanColorToStorage(planId, color) {
+    try {
+      const savedColors = JSON.parse(localStorage.getItem('planColors') || '{}');
+      savedColors[planId] = color;
+      localStorage.setItem('planColors', JSON.stringify(savedColors));
+      if (plansDataMap[planId]) {
+        plansDataMap[planId].color = color;
+      }
+    } catch (e) {
+      console.log('색상 저장 오류:', e);
+    }
+  }
+  
+  // 페이지 로드 시 저장된 색상 불러오기
+  loadPlanColorsFromStorage();
+  
+  // 계획 카드와 드롭다운 색상 업데이트 함수
+  function updatePlanColors() {
+    Object.keys(plansDataMap).forEach(planId => {
+      const color = plansDataMap[planId].color;
+      
+      // 학습 계획 선택 섹션의 계획 카드 업데이트
+      const planCard = document.querySelector(`.plan-card[data-plan-id="${planId}"]`);
+      if (planCard) {
+        planCard.style.borderLeftColor = color;
+        planCard.style.background = `linear-gradient(135deg, ${color}10 0%, white 100%)`;
+        
+        // 카드 내 색상 표시 업데이트
+        const indicator = planCard.querySelector('.plan-color-indicator');
+        if (indicator) {
+          indicator.style.backgroundColor = color;
+        }
+      }
+      
+      // 관리 모달의 계획 카드 업데이트
+      const modalCard = document.querySelector(`#managePlanModal [data-plan-id="${planId}"]`);
+      if (modalCard) {
+        modalCard.style.borderLeftColor = color;
+        modalCard.style.background = `linear-gradient(135deg, ${color}10 0%, white 100%)`;
+        
+        const indicator = modalCard.querySelector('.plan-color-indicator');
+        if (indicator) {
+          indicator.style.backgroundColor = color;
+        }
+      }
+      
+      // 드롭다운 옵션 업데이트
+      const option = document.querySelector(`#planFilterSelect option[value="${planId}"]`);
+      if (option) {
+        option.style.background = `linear-gradient(90deg, ${color} 12px, white 12px)`;
+      }
+      
+      // 달력 셀 색상 업데이트
+      const calendarCells = document.querySelectorAll(`[data-plan-id="${planId}"].status-plan-color`);
+      calendarCells.forEach(cell => {
+        const status = cell.dataset.status;
+        
+        cell.style.backgroundColor = color;
+        
+        if (status === 'done') {
+          cell.style.filter = 'brightness(0.85) saturate(1.4)';
+          cell.style.color = '#fff';
+          cell.style.fontWeight = '600';
+        } else if (status === 'partial') {
+          cell.style.filter = 'brightness(0.9) saturate(1.1)';
+          cell.style.color = '#333';
+          cell.style.fontWeight = '500';
+        } else {
+          cell.style.filter = '';
+          cell.style.color = '#333';
+          cell.style.fontWeight = '500';
+        }
+      });
+    });
+  }
+  
+  // 초기 색상 업데이트
+  updatePlanColors();
+  </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // ============ 학습 실적 모달 =============
+    const modal = document.getElementById("dayModal");
+    const closeBtn = document.getElementById("closeModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalDate = document.getElementById("modalDate");
+    const taskList = document.getElementById("taskList");
+    
+    // 새 템플릿 만들기 모달 요소
+    const createTemplateModal = document.getElementById("createTemplateModal");
+    const openCreateTemplateModal = document.getElementById("openCreateTemplateModal");
+    const closeCreateTemplateModal = document.getElementById("closeCreateTemplateModal");
+    const cancelCreateTemplateBtn = document.getElementById("cancelCreateTemplateBtn");
+    const saveCreateTemplateBtn = document.getElementById("saveCreateTemplateBtn");
+    const newTemplateTitle = document.getElementById("newTemplateTitle");
+    const newTemplateSubject = document.getElementById("newTemplateSubject");
+    const newTemplateDescription = document.getElementById("newTemplateDescription");
+    const templateItemsList = document.getElementById("templateItemsList");
+    const addTemplateItemBtn = document.getElementById("addTemplateItemBtn");
+    const templateItemCount = document.getElementById("templateItemCount");
+    const createTemplateFile = document.getElementById("createTemplateFile");
+    const createTemplateImportBtn = document.getElementById("createTemplateImportBtn");
+    const createTemplatePaste = document.getElementById("createTemplatePaste");
+    const createTemplatePasteBtn = document.getElementById("createTemplatePasteBtn");
+    const clearTemplateItemsBtn = document.getElementById("clearTemplateItemsBtn");
+    
+    // 템플릿 관리 모달 요소
+    const templateModal = document.getElementById("templateModal");
+    const closeTemplateModal = document.getElementById("closeTemplateModal");
+    const templateFile = document.getElementById("templateFile");
+    const uploadTemplateBtn = document.getElementById("uploadTemplateBtn");
+    const templatePaste = document.getElementById("templatePaste");
+    const savePasteBtn = document.getElementById("savePasteBtn");
+    const templateStatus = document.getElementById("templateStatus");
+
+    const currentYear = {{ year }};
+    const urlPlanId = new URLSearchParams(window.location.search).get('plan_id');
+    const activePlanId = urlPlanId ? Number(urlPlanId) : null;
+    
+    // ============ 캘린더 표시 계획 선택 (드롭다운) =============
+    const planFilterSelect = document.getElementById('planFilterSelect');
+    if (planFilterSelect) {
+      planFilterSelect.value = activePlanId ? String(activePlanId) : '';
+      planFilterSelect.addEventListener('change', () => {
+        const val = planFilterSelect.value;
+        const base = `/${currentYear}`;
+        window.location.href = val ? `${base}?plan_id=${val}` : base;
+      });
+    }
+    
+    document.querySelectorAll("[data-day-id]").forEach(day => {
+      day.addEventListener("click", async () => {
+        const dayId = day.dataset.dayId;
+        if (!dayId) return;
+        const params = new URLSearchParams(window.location.search);
+        const currentPlanId = params.get('plan_id') || (activePlanId ? String(activePlanId) : null);
+        const url = currentPlanId ? `/day/${dayId}?year=${currentYear}&plan_id=${currentPlanId}` : `/day/${dayId}?year=${currentYear}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.ok) {
+          alert(data.error || "day not found");
+          return;
+        }
+        
+        modalDate.textContent = `${data.date} 학습 체크`;
+        
+        // 작업 리스트 렌더링
+        taskList.innerHTML = "";
+        
+        if (data.tasks && data.tasks.length > 0) {
+          data.tasks.forEach(task => {
+            const taskItem = document.createElement("div");
+            taskItem.className = "border rounded-lg p-3 bg-gray-50";
+            let taskHtml = `
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <div class="font-semibold text-sm text-gray-800">${task.plan_title}</div>
+                  <div class="text-xs text-gray-500 mb-1">${task.subject}</div>
+                  <div class="text-sm text-gray-700">${task.task_title}</div>`;
+            
+            // 링크가 있으면 표시
+            if (task.link_url) {
+              const normalizedLink = /^(https?:\/\/)/i.test(task.link_url) ? task.link_url : `https://${task.link_url}`;
+              taskHtml += `<div class="text-xs text-blue-600 mt-1"><a href="javascript:void(0)" onclick="window.open('${normalizedLink}', '_blank', 'noopener')" class="hover:underline">🔗 ${task.link_url}</a></div>`;
+            }
+            
+            taskHtml += `
+                </div>
+                <label class="inline-flex items-center ml-3">
+                  <input type="checkbox" 
+                         class="task-checkbox w-5 h-5" 
+                         data-task-id="${task.task_id}"
+                         ${task.status === 'done' ? 'checked' : ''}>
+                </label>
+              </div>
+            `;
+            taskItem.innerHTML = taskHtml;
+            taskList.appendChild(taskItem);
+          });
+          
+          // 각 체크박스에 이벤트 리스너 추가
+          taskList.querySelectorAll(".task-checkbox").forEach(checkbox => {
+            checkbox.addEventListener("change", async (e) => {
+              const taskId = e.target.dataset.taskId;
+              const isCompleted = e.target.checked;
+              
+              const res = await fetch("/day/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  task_id: taskId,
+                  completed: isCompleted
+                })
+              });
+              
+              const result = await res.json();
+              if (!result.ok) {
+                alert(result.error || "저장 중 오류가 발생했습니다.");
+                e.target.checked = !isCompleted; // 되돌리기
+              }
+              // 체크 시 즉시 페이지 새로고침하지 않음
+            });
+          });
+        } else {
+          taskList.innerHTML = '<div class="text-gray-500 text-center py-4">이 날짜에 계획된 학습이 없습니다.</div>';
+        }
+        
+        modal.classList.remove("hidden");
+      });
+    });
+    closeBtn.addEventListener("click", () => {
+      modal.classList.add("hidden");
+      location.reload(); // 모달 닫을 때 캘린더 업데이트
+    });
+    closeModalBtn.addEventListener("click", () => {
+      modal.classList.add("hidden");
+      location.reload(); // 모달 닫을 때 캘린더 업데이트
+    });
+
+    // 계획 카드 내 버튼 클릭 시 카드 링크 방지
+    document.querySelectorAll('.toggle-daily-plan-modal, .add-row-btn-modal, .save-daily-plan-btn-modal, .cancel-edit-btn-modal').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+
+    // (Legacy template modal handlers removed to avoid conflicts)
+
+    // ============ 새 템플릿 만들기 모달 =============
+    let templateItemCounter = 0;
+    
+    // 모달 열기
+    if (openCreateTemplateModal) {
+      openCreateTemplateModal.addEventListener("click", () => {
+        createTemplateModal.classList.remove("hidden");
+        // 초기화
+        newTemplateTitle.value = "";
+        newTemplateSubject.value = "";
+        newTemplateDescription.value = "";
+        templateItemsList.innerHTML = "";
+        templateItemCounter = 0;
+        updateTemplateItemCount();
+        // 첫 항목 자동 추가
+        addTemplateItem();
+      });
+    }
+    
+    // 모달 닫기
+    if (closeCreateTemplateModal) {
+      closeCreateTemplateModal.addEventListener("click", () => {
+        createTemplateModal.classList.add("hidden");
+      });
+    }
+    
+    if (cancelCreateTemplateBtn) {
+      cancelCreateTemplateBtn.addEventListener("click", () => {
+        createTemplateModal.classList.add("hidden");
+      });
+    }
+    
+    // 항목 추가 버튼
+    if (addTemplateItemBtn) {
+      addTemplateItemBtn.addEventListener("click", () => {
+        addTemplateItem();
+      });
+    }
+    
+    // 템플릿 항목 추가 함수
+    function addTemplateItem(title = "", linkUrl = "") {
+      templateItemCounter++;
+      const itemId = `templateItem_${templateItemCounter}`;
+      
+      const itemDiv = document.createElement("div");
+      itemDiv.id = itemId;
+      itemDiv.className = "border rounded-lg p-3 bg-gray-50";
+      itemDiv.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 w-8 text-center text-gray-500 font-medium pt-2">${templateItemCounter}</div>
+          <div class="flex-1 space-y-2">
+            <input type="text" placeholder="제목을 입력하세요" 
+                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   data-field="title" value="${title}">
+            <input type="text" placeholder="링크 URL (선택사항)" 
+                   class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   data-field="link" value="${linkUrl}">
+          </div>
+          <button class="flex-shrink-0 text-red-500 hover:text-red-700 text-xl" onclick="removeTemplateItem('${itemId}')">
+            &times;
+          </button>
+        </div>
+      `;
+      
+      templateItemsList.appendChild(itemDiv);
+      updateTemplateItemCount();
+    }
+    
+    // 항목 제거 함수 (전역으로 노출)
+    window.removeTemplateItem = function(itemId) {
+      const item = document.getElementById(itemId);
+      if (item) {
+        item.remove();
+        updateTemplateItemCount();
+        // 순번 재정렬
+        renumberTemplateItems();
+      }
+    };
+    
+    // 항목 개수 업데이트
+    function updateTemplateItemCount() {
+      const count = templateItemsList.children.length;
+      templateItemCount.textContent = count;
+    }
+    
+    // 순번 재정렬
+    function renumberTemplateItems() {
+      const items = templateItemsList.children;
+      Array.from(items).forEach((item, index) => {
+        const numberSpan = item.querySelector(".flex-shrink-0.w-8");
+        if (numberSpan) {
+          numberSpan.textContent = index + 1;
+        }
+      });
+    }
+
+    // 항목 모두 비우기
+    if (clearTemplateItemsBtn) {
+      clearTemplateItemsBtn.addEventListener("click", () => {
+        templateItemsList.innerHTML = "";
+        templateItemCounter = 0;
+        updateTemplateItemCount();
+      });
+    }
+
+    // 붙여넣기 파서: 행당 "제목,링크" 또는 탭 구분
+    function parsePasteText(text) {
+      const rows = [];
+      if (!text) return rows;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+      let order = templateItemsList.children.length;
+      for (const ln of lines) {
+        const parts = ln.split(/\t|,/);
+        const title = (parts[0] || "").trim();
+        const link = parts.length > 1 ? (parts[1] || "").trim() : "";
+        if (title) {
+          rows.push({ order_no: ++order, title, link_url: link || null });
+        }
+      }
+      return rows;
+    }
+
+    // CSV 텍스트 파서 (헤더: title,link_url 지원)
+    function parseCsvText(csvText) {
+      const rows = [];
+      if (!csvText) return rows;
+      const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length === 0) return rows;
+      // 헤더 추정
+      const header = lines[0].split(",").map(h => h.trim().toLowerCase());
+      let startIdx = 0;
+      let hasHeader = false;
+      const titleIdx = header.indexOf("title");
+      const linkIdx = header.indexOf("link_url");
+      if (titleIdx !== -1 || linkIdx !== -1) {
+        hasHeader = true;
+        startIdx = 1;
+      }
+      let order = templateItemsList.children.length;
+      for (let i = startIdx; i < lines.length; i++) {
+        const cols = lines[i].split(",");
+        const title = (cols[titleIdx !== -1 ? titleIdx : 0] || "").trim();
+        const link = linkIdx !== -1 ? (cols[linkIdx] || "").trim() : (cols[1] || "").trim();
+        if (title) rows.push({ order_no: ++order, title, link_url: link || null });
+      }
+      return rows;
+    }
+
+    // 붙여넣기 → 항목 추가
+    if (createTemplatePasteBtn) {
+      createTemplatePasteBtn.addEventListener("click", () => {
+        const text = createTemplatePaste.value || "";
+        const rows = parsePasteText(text);
+        if (rows.length === 0) { alert("추가할 행이 없습니다."); return; }
+        rows.forEach(r => addTemplateItem(r.title, r.link_url || ""));
+        renumberTemplateItems();
+      });
+    }
+
+    // CSV 업로드 → 항목 추가
+    if (createTemplateImportBtn) {
+      createTemplateImportBtn.addEventListener("click", () => {
+        if (!createTemplateFile.files || createTemplateFile.files.length === 0) {
+          alert("CSV 파일을 선택하세요.");
+          return;
+        }
+        const file = createTemplateFile.files[0];
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = reader.result;
+          const rows = parseCsvText(text);
+          if (rows.length === 0) { alert("추가할 행이 없습니다."); return; }
+          rows.forEach(r => addTemplateItem(r.title, r.link_url || ""));
+          renumberTemplateItems();
+          createTemplateFile.value = "";
+        };
+        reader.onerror = () => alert("파일 읽기 중 오류가 발생했습니다.");
+        reader.readAsText(file, "utf-8");
+      });
+    }
+    
+    // 템플릿 저장 버튼 (중복 저장 방지)
+    let isSavingTemplate = false;
+    if (saveCreateTemplateBtn) {
+      saveCreateTemplateBtn.addEventListener("click", async () => {
+        // 이미 저장 중이면 무시
+        if (isSavingTemplate) {
+          return;
+        }
+        
+        const title = newTemplateTitle.value.trim();
+        const subject = newTemplateSubject.value.trim();
+        const description = newTemplateDescription.value.trim();
+        
+        if (!title) {
+          alert("템플릿 제목을 입력하세요.");
+          return;
+        }
+        
+        // 모든 항목 수집
+        const items = templateItemsList.children;
+        const templateItems = [];
+        
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const titleInput = item.querySelector('[data-field="title"]');
+          const linkInput = item.querySelector('[data-field="link"]');
+          
+          const itemTitle = titleInput.value.trim();
+          const itemLink = linkInput.value.trim();
+          
+          if (itemTitle) {
+            templateItems.push({
+              order_no: i + 1,
+              title: itemTitle,
+              link_url: itemLink || null
+            });
+          }
+        }
+        
+        if (templateItems.length === 0) {
+          alert("최소 1개 이상의 항목을 입력하세요.");
+          return;
+        }
+        
+        // 저장 중으로 표시 + 버튼 비활성화
+        isSavingTemplate = true;
+        saveCreateTemplateBtn.disabled = true;
+        const originalText = saveCreateTemplateBtn.textContent;
+        saveCreateTemplateBtn.textContent = "저장 중...";
+        
+        // API 호출
+        try {
+          const res = await fetch("/templates/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              template_title: title,
+              subject: subject || null,
+              description: description || null,
+              items: templateItems
+            })
+          });
+          
+          const data = await res.json();
+          if (data.ok) {
+            alert(`템플릿 "${title}"이(가) 생성되었습니다! (${data.item_count}개 항목)`);
+            createTemplateModal.classList.add("hidden");
+          } else {
+            alert(data.error || "저장 실패");
+          }
+        } catch (err) {
+          alert("저장 중 오류가 발생했습니다: " + err.message);
+        } finally {
+          // 저장 완료 후 상태 복원
+          isSavingTemplate = false;
+          saveCreateTemplateBtn.disabled = false;
+          saveCreateTemplateBtn.textContent = originalText;
+        }
+      });
+    }
+
+    // 파일 업로드
+    if (uploadTemplateBtn) {
+      uploadTemplateBtn.addEventListener("click", async () => {
+        if (!activePlanId) { alert("활성 계획이 없습니다."); return; }
+        if (!templateFile.files || templateFile.files.length === 0) { alert("파일을 선택하세요."); return; }
+        const fd = new FormData();
+        fd.append("file", templateFile.files[0]);
+        const res = await fetch(`/plan/${activePlanId}/templates/upload`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.ok) {
+          const cnt = await fetchTemplateCount();
+          alert(`${data.count}개 추가되었습니다. 현재 총 ${cnt}개 템플릿.`);
+          templateStatus.textContent = `현재 템플릿: ${cnt}개`;
+          templateFile.value = "";
+        } else {
+          alert(data.error || "업로드 실패");
+        }
+      });
+    }
+
+    // 붙여넣기 저장
+    if (savePasteBtn) {
+      savePasteBtn.addEventListener("click", async () => {
+        if (!activePlanId) { alert("활성 계획이 없습니다."); return; }
+        const text = templatePaste.value || "";
+        if (!text.trim()) { alert("붙여넣기 내용이 없습니다."); return; }
+        const res = await fetch(`/plan/${activePlanId}/templates/upload`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paste_text: text })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          const cnt = await fetchTemplateCount();
+          alert(`${data.count}개 추가되었습니다. 현재 총 ${cnt}개 템플릿.`);
+          templateStatus.textContent = `현재 템플릿: ${cnt}개`;
+          templatePaste.value = "";
+        } else {
+          alert(data.error || "저장 실패");
+        }
+      });
+    }
+
+    // ============ 새 학습 계획 선택 및 생성 모달 =============
+    const planChoiceModal = document.getElementById("planChoiceModal");
+    const planModal = document.getElementById("planModal");
+    const openPlanModal = document.getElementById("openPlanModal");
+    const closePlanChoiceModal = document.getElementById("closePlanChoiceModal");
+    const openNewPlan = document.getElementById("openNewPlan");
+    const openLoadPlan = document.getElementById("openLoadPlan");
+    const closePlanModal = document.getElementById("closePlanModal");
+    const savePlanBtn = document.getElementById("savePlanBtn");
+
+    // “+ 새 계획” 클릭 시
+    openPlanModal.addEventListener("click", () => {
+      planChoiceModal.classList.remove("hidden");
+    });
+
+    // “선택 모달” 닫기
+    closePlanChoiceModal.addEventListener("click", () => {
+      planChoiceModal.classList.add("hidden");
+    });
+
+    // “새 계획 만들기” 클릭 시
+    openNewPlan.addEventListener("click", () => {
+      planChoiceModal.classList.add("hidden");
+      planModal.classList.remove("hidden");
+    });
+
+    // “불러오기” 클릭 시
+    const loadTemplateModal = document.getElementById("loadTemplateModal");
+    const closeLoadTemplateModal = document.getElementById("closeLoadTemplateModal");
+    const cancelLoadTemplate = document.getElementById("cancelLoadTemplate");
+    const confirmLoadTemplate = document.getElementById("confirmLoadTemplate");
+    
+    openLoadPlan.addEventListener("click", async () => {
+      planChoiceModal.classList.add("hidden");
+      loadTemplateModal.classList.remove("hidden");
+      // 템플릿 목록 로드
+      try {
+        const res = await fetch("/templates");
+        const data = await res.json();
+        if (data.ok) {
+          const select = document.getElementById("loadTemplatePlanSelect");
+          const opts = '<option value="">-- 템플릿 선택 --</option>';
+          select.innerHTML = opts + (data.templates || []).map(t => 
+            `<option value="${t.template_id}">${t.template_title} (${t.subject || ''})</option>`
+          ).join('');
+        }
+      } catch (e) {
+        alert('템플릿 로드 실패: ' + e.message);
+      }
+    });
+
+    closeLoadTemplateModal.addEventListener("click", () => {
+      loadTemplateModal.classList.add("hidden");
+    });
+
+    cancelLoadTemplate.addEventListener("click", () => {
+      loadTemplateModal.classList.add("hidden");
+    });
+
+    confirmLoadTemplate.addEventListener("click", async () => {
+      const sourceTemplateId = document.getElementById("loadTemplatePlanSelect").value;
+      const newTitle = document.getElementById("loadTemplateTitle").value.trim();
+      const newSubject = document.getElementById("loadTemplateSubject").value.trim();
+      const startDate = document.getElementById("loadTemplateStart").value;
+      const endDate = document.getElementById("loadTemplateEnd").value;
+
+      if (!sourceTemplateId || !newTitle || !newSubject || !startDate || !endDate) {
+        alert("모든 항목을 입력해주세요!");
+        return;
+      }
+
+      try {
+        const res = await fetch("/plan/create_from_template", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            source_template_id: parseInt(sourceTemplateId),
+            title: newTitle,
+            subject: newSubject,
+            start_date: startDate,
+            end_date: endDate
+          })
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          alert(data.message + "\n생성된 일일 계획: " + data.count + "개");
+          loadTemplateModal.classList.add("hidden");
+          location.reload();
+        } else {
+          alert("계획 생성 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (error) {
+        alert("서버 오류: " + error.message);
+      }
+    });
+
+    // 새 계획 모달 닫기
+    closePlanModal.addEventListener("click", () => {
+      planModal.classList.add("hidden");
+    });
+
+    // 저장 처리
+    savePlanBtn.addEventListener("click", async () => {
+      const title = document.getElementById("planTitle").value.trim();
+      const subject = document.getElementById("planSubject").value.trim();
+      const start = document.getElementById("planStart").value;
+      const end = document.getElementById("planEnd").value;
+      if (!title || !subject || !start || !end) {
+        alert("모든 항목을 입력해주세요!");
+        return;
+      }
+      
+      try {
+        const res = await fetch("/plan/create", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            title: title,
+            subject: subject,
+            start_date: start,
+            end_date: end
+          })
+        });
+        
+        const data = await res.json();
+        if (data.ok) {
+          alert(data.message);
+          planModal.classList.add("hidden");
+          location.reload();
+        } else {
+          alert("계획 추가 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (error) {
+        alert("서버 오류: " + error.message);
+      }
+    });
+
+    // 년도 선택 변경 시 페이지 리로드
+    const yearSelector = document.getElementById("yearSelector");
+    yearSelector.addEventListener("change", (e) => {
+      const selectedYear = e.target.value;
+      const params = new URLSearchParams(window.location.search);
+      const currentPlanId = params.get('plan_id');
+      window.location.href = currentPlanId ? `/${selectedYear}?plan_id=${currentPlanId}` : `/${selectedYear}`;
+    });
+
+    // 학습 계획 관리 모달
+    const managePlanModal = document.getElementById("managePlanModal");
+    const openManagePlanModalBtn = document.getElementById("openManagePlanModal");
+    const closeManagePlanModalBtn = document.getElementById("closeManagePlanModal");
+
+    openManagePlanModalBtn?.addEventListener("click", () => {
+      managePlanModal.classList.remove("hidden");
+    });
+
+    closeManagePlanModalBtn?.addEventListener("click", () => {
+      managePlanModal.classList.add("hidden");
+    });
+
+    // 모달 외부 클릭 시 닫기
+    managePlanModal?.addEventListener("click", (e) => {
+      if (e.target === managePlanModal) {
+        managePlanModal.classList.add("hidden");
+      }
+    });
+
+    // 모달 내 계획 수정/삭제 버튼(이벤트 위임) - 모달 내부 클릭만 처리
+    document.addEventListener("click", async (e) => {
+      if (!managePlanModal || managePlanModal.classList.contains("hidden")) return;
+      if (!managePlanModal.contains(e.target)) return;
+      const delBtn = e.target.closest(".delete-plan-btn-modal");
+      const editBtn = e.target.closest(".edit-plan-btn-modal");
+
+      if (delBtn) {
+        const planId = delBtn.dataset.planId;
+        const planCard = delBtn.closest('[data-plan-id]');
+        const titleEl = planCard ? planCard.querySelector('h3') : null;
+        const title = titleEl ? titleEl.textContent : '선택한 계획';
+
+        if (!confirm(`"${title}" 계획을 정말 삭제하시겠습니까?\n\n삭제하면 모든 일일 계획도 함께 삭제됩니다.`)) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`/plan/${planId}/delete`, { method: "POST", headers: {"Content-Type": "application/json"} });
+          const data = await res.json();
+          if (data.ok) {
+            alert(data.message);
+            location.reload();
+          } else {
+            alert("계획 삭제 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        } catch (error) {
+          alert("서버 오류: " + error.message);
+        }
+        return;
+      }
+
+      if (editBtn) {
+        const planId = editBtn.dataset.planId;
+        const planData = plansDataMap[planId];
+        
+        if (!planData) {
+          alert('계획 정보를 불러올 수 없습니다.');
+          return;
+        }
+
+        // 색상 팔레트 생성
+        const colors = ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BEEE', '#FFDFD3'];
+        const colorPicker = document.getElementById('colorPicker');
+        const currentColor = planData.color;
+        
+        colorPicker.innerHTML = colors.map(color => `
+          <button type="button" class="w-12 h-12 rounded-lg border-4 hover:scale-110 transition-transform color-option" 
+            data-color="${color}" 
+            style="background-color: ${color}; border-color: ${color === currentColor ? '#000' : '#ddd'}; border-width: ${color === currentColor ? '4px' : '2px'};">
+          </button>
+        `).join('');
+
+        // 입력 필드에 정보 채우기
+        document.getElementById('editPlanTitle').value = planData.title;
+        document.getElementById('editPlanSubject').value = planData.subject;
+        document.getElementById('editPlanModal').dataset.planId = planId;
+        document.getElementById('editPlanModal').dataset.selectedColor = currentColor;
+        
+        const editPlanModal = document.getElementById('editPlanModal');
+        editPlanModal.classList.remove('hidden');
+        return;
+      }
+    });
+
+    // 모달 내 일일 계획 토글
+    document.querySelectorAll(".toggle-daily-plan-modal").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        const section = document.querySelector(`.daily-plan-section-modal[data-plan-id="${planId}"]`);
+        
+        if (section.classList.contains("hidden")) {
+          // 기존 데이터 로드
+          await loadDailyPlansModal(planId);
+          
+          section.classList.remove("hidden");
+          e.target.textContent = `▲ 일일 계획 숨기기`;
+        } else {
+          section.classList.add("hidden");
+          e.target.textContent = `▼ 일일 계획 보기`;
+        }
+      });
+    });
+
+    // 모달용 일일 계획 데이터 로드 함수
+    async function loadDailyPlansModal(planId) {
+      try {
+        const res = await fetch(`/plan/${planId}/daily`);
+        const data = await res.json();
+        
+        if (data.ok && data.daily_plans && data.daily_plans.length > 0) {
+          const tbody = document.querySelector(`#daily-plan-table-modal-${planId} tbody`);
+          tbody.innerHTML = '';
+          
+          data.daily_plans.forEach(plan => {
+            const newRow = document.createElement("tr");
+            newRow.className = "daily-plan-row";
+            newRow.innerHTML = `
+              <td class="px-4 py-2">
+                <input type="date" class="border rounded px-2 py-1 w-32" value="${plan.date || ''}">
+              </td>
+              <td class="px-4 py-2">
+                <input type="number" class="border rounded px-2 py-1 w-12" value="${plan.order || ''}">
+              </td>
+              <td class="px-4 py-2">
+                <input type="text" class="border rounded px-2 py-1 w-full" value="${plan.description || ''}" placeholder="학습 내용을 입력하세요">
+              </td>
+              <td class="px-4 py-2">
+                <input type="text" class="border rounded px-2 py-1 w-full" value="${plan.link_url || ''}" placeholder="링크 주소를 입력하세요">
+              </td>
+              <td class="px-4 py-2">
+                <select class="border rounded px-2 py-1 w-full">
+                  <option value="planned" ${plan.status === 'planned' ? 'selected' : ''}>예정</option>
+                  <option value="done" ${plan.status === 'done' ? 'selected' : ''}>완료</option>
+                  <option value="partial" ${plan.status === 'partial' ? 'selected' : ''}>부분완료</option>
+                  <option value="missed" ${plan.status === 'missed' ? 'selected' : ''}>미완료</option>
+                </select>
+              </td>
+              <td class="px-4 py-2 text-center">
+                <button class="delete-row-btn-modal text-red-600 hover:text-red-800">🗑️</button>
+              </td>
+            `;
+            tbody.appendChild(newRow);
+          });
+        }
+      } catch (error) {
+        console.error("데이터 로드 오류:", error);
+      }
+    }
+
+    // 모달 내 행 추가 버튼
+    document.querySelectorAll(".add-row-btn-modal").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const planId = e.target.dataset.planId;
+        const tbody = document.querySelector(`#daily-plan-table-modal-${planId} tbody`);
+        
+        const newRow = document.createElement("tr");
+        newRow.className = "daily-plan-row";
+        newRow.innerHTML = `
+          <td class="px-4 py-2">
+            <input type="date" class="border rounded px-2 py-1 w-32" value="${new Date().toISOString().split('T')[0]}">
+          </td>
+          <td class="px-4 py-2">
+            <input type="number" class="border rounded px-2 py-1 w-12" value="1">
+          </td>
+          <td class="px-4 py-2">
+            <input type="text" class="border rounded px-2 py-1 w-full" placeholder="학습 내용을 입력하세요">
+          </td>
+          <td class="px-4 py-2">
+            <select class="border rounded px-2 py-1 w-full">
+              <option value="planned" selected>예정</option>
+              <option value="done">완료</option>
+              <option value="partial">부분완료</option>
+              <option value="missed">미완료</option>
+            </select>
+          </td>
+          <td class="px-4 py-2 text-center">
+            <button class="delete-row-btn-modal text-red-600 hover:text-red-800">🗑️</button>
+          </td>
+        `;
+        
+        tbody.appendChild(newRow);
+      });
+    });
+
+    // 모달 내 행 삭제 (이벤트 위임)
+    document.addEventListener("click", (e) => {
+      if (e.target.classList.contains("delete-row-btn-modal") || e.target.closest(".delete-row-btn-modal")) {
+        const btn = e.target.classList.contains("delete-row-btn-modal") ? e.target : e.target.closest(".delete-row-btn-modal");
+        if (confirm("이 행을 삭제하시겠습니까?")) {
+          btn.closest("tr").remove();
+        }
+      }
+    });
+
+    // 모달 내 일일 계획 저장
+    document.querySelectorAll(".save-daily-plan-btn-modal").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        const rows = document.querySelectorAll(`#daily-plan-table-modal-${planId} tbody tr`);
+        
+        const dailyPlans = [];
+        rows.forEach(row => {
+          const inputs = row.querySelectorAll("input");
+          const select = row.querySelector("select");
+          dailyPlans.push({
+            date: inputs[0].value,
+            order: parseInt(inputs[1].value) || 0,
+            description: inputs[2].value,
+            link_url: inputs[3].value || null,
+            status: select ? select.value : 'planned'
+          });
+        });
+
+        try {
+          const res = await fetch(`/plan/${planId}/daily`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ daily_plans: dailyPlans })
+          });
+          
+          const data = await res.json();
+          if (data.ok) {
+            alert("일일 계획이 저장되었습니다!");
+            location.reload(); // 달력 업데이트를 위해 페이지 새로고침
+          } else {
+            alert("저장 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        } catch (error) {
+          alert("서버 오류: " + error.message);
+        }
+      });
+    });
+
+    // 모달 내 취소 버튼
+    document.querySelectorAll(".cancel-edit-btn-modal").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const planId = e.target.dataset.planId;
+        const section = document.querySelector(`.daily-plan-section-modal[data-plan-id="${planId}"]`);
+        section.classList.add("hidden");
+        
+        const toggleBtn = document.querySelector(`.toggle-daily-plan-modal[data-plan-id="${planId}"]`);
+        toggleBtn.textContent = `▼ 일일 계획 보기`;
+      });
+    });
+
+    // 계획 편집 모달 열고 닫기
+    const editPlanModal = document.getElementById('editPlanModal');
+    const closeEditPlanModalBtn = document.getElementById('closeEditPlanModal');
+    
+    closeEditPlanModalBtn?.addEventListener('click', () => {
+      editPlanModal.classList.add('hidden');
+    });
+
+    document.getElementById('cancelEditPlan')?.addEventListener('click', () => {
+      editPlanModal.classList.add('hidden');
+    });
+
+    // 색상 선택
+    document.addEventListener('click', (e) => {
+      const colorOpt = e.target.closest('.color-option');
+      if (colorOpt) {
+        document.querySelectorAll('.color-option').forEach(opt => {
+          opt.style.borderColor = '#ddd';
+          opt.style.borderWidth = '2px';
+        });
+        colorOpt.style.borderColor = '#000';
+        colorOpt.style.borderWidth = '4px';
+        editPlanModal.dataset.selectedColor = colorOpt.dataset.color;
+      }
+    });
+
+    // 계획 저장
+    document.getElementById('saveEditPlan')?.addEventListener('click', async () => {
+      const planId = editPlanModal.dataset.planId;
+      const title = document.getElementById('editPlanTitle').value.trim();
+      const subject = document.getElementById('editPlanSubject').value.trim();
+      const color = editPlanModal.dataset.selectedColor || '';
+
+      if (!title) {
+        alert('제목을 입력하세요.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/plan/${planId}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, subject })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          // 색상 저장 (localStorage)
+          if (color) {
+            savePlanColorToStorage(planId, color);
+          }
+          alert('계획이 수정되었습니다.');
+          editPlanModal.classList.add('hidden');
+          // 색상 업데이트 (페이지 새로고침 대신)
+          updatePlanColors();
+        } else {
+          alert(data.error || '수정 실패');
+        }
+      } catch (error) {
+        alert('서버 오류: ' + error.message);
+      }
+    });
+
+    // 모달 외부 클릭 시 닫기
+    editPlanModal?.addEventListener('click', (e) => {
+      if (e.target === editPlanModal) {
+        editPlanModal.classList.add('hidden');
+      }
+    });
+  });
+  </script>
+  <script>
+  // 템플릿 관리 모달 열기/닫기
+  document.addEventListener('DOMContentLoaded', () => {
+    const openBtn = document.getElementById('openTemplateManageModal');
+    const modal = document.getElementById('templateManageModal');
+    const frame = document.getElementById('templateManageFrame');
+    const closeBtn = document.getElementById('closeTemplateManageModal');
+
+    if (openBtn && modal && frame) {
+      const activePlanId = {{ active_plan.plan_id if active_plan else 'null' }};
+      openBtn.addEventListener('click', () => {
+        const url = activePlanId ? `/templates/manage?plan_id=${activePlanId}` : '/templates/manage';
+        frame.src = url;
+        modal.classList.remove('hidden');
+      });
+    }
+    if (closeBtn && modal) {
+      closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+      });
+    }
+  });
+  </script>
+</body>
+</html>

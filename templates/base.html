@@ -1,0 +1,26 @@
+<!-- templates/base.html -->
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title or "자기주도 학습 캘린더" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .day { @apply w-9 h-9 flex items-center justify-center rounded-md text-sm cursor-pointer border border-gray-200; }
+    .day.today { @apply ring-2 ring-blue-500; }
+    .day.planned { @apply bg-gray-100; }
+    .day.done { @apply bg-green-200; }
+    .day.partial { @apply bg-yellow-200; }
+    .day.missed { @apply bg-red-200; }
+    .day.none { @apply bg-white text-gray-400; }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <div class="max-w-6xl mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">자기주도 학습 캘린더</h1>
+    {% block content %}{% endblock %}
+  </div>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

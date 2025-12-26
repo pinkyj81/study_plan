@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>템플릿 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-6xl mx-auto p-8">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">템플릿 관리</h1>
+        <p class="text-gray-600">템플릿을 별도 페이지에서 넓게 관리하세요.</p>
+      </div>
+      <a href="/" class="text-sm text-blue-600 hover:underline">← 캘린더로 돌아가기</a>
+    </div>
+
+    <!-- 템플릿 선택 -->
+    <div class="bg-white rounded-xl shadow p-4 mb-6">
+      <div class="flex items-center gap-3 mb-3">
+        <label class="text-sm font-semibold text-gray-700">템플릿 선택</label>
+        <select id="templateSelect" class="border rounded px-3 py-2 text-sm flex-1">
+          <option value="">— 템플릿을 선택하세요 —</option>
+        </select>
+      </div>
+      <!-- 선택된 템플릿 상세 정보 표시 -->
+      <div id="templateDetails" class="bg-gray-50 rounded p-3 hidden">
+        <div class="grid grid-cols-3 gap-3 text-sm">
+          <div>
+            <span class="text-gray-500 block mb-1">과목</span>
+            <span id="detailSubject" class="font-semibold text-gray-800"></span>
+          </div>
+          <div class="col-span-2">
+            <span class="text-gray-500 block mb-1">설명</span>
+            <span id="detailDescription" class="font-semibold text-gray-800"></span>
+          </div>
+        </div>
+        <div class="mt-2 text-xs text-gray-500">
+          <span id="detailCount"></span> • 생성일: <span id="detailCreated"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-semibold text-lg">템플릿 목록</h2>
+        <div class="flex gap-2">
+          <button id="addRow" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm">+ 행 추가</button>
+          <button id="bulkSave" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded text-sm">일괄 저장</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="tplTable">
+          <thead class="bg-gray-100 text-gray-700">
+            <tr>
+              <th class="px-3 py-2 w-16 text-left">순서</th>
+              <th class="px-3 py-2 text-left">제목</th>
+              <th class="px-3 py-2 text-left">링크</th>
+              <th class="px-3 py-2 w-12 text-center">삭제</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" id="tplBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const templateSelect = document.getElementById('templateSelect');
+    const tplBody = document.getElementById('tplBody');
+    const addRowBtn = document.getElementById('addRow');
+    const bulkSaveBtn = document.getElementById('bulkSave');
+    const templateDetails = document.getElementById('templateDetails');
+    const detailSubject = document.getElementById('detailSubject');
+    const detailDescription = document.getElementById('detailDescription');
+    const detailCount = document.getElementById('detailCount');
+    const detailCreated = document.getElementById('detailCreated');
+    let currentTemplateId = null;
+    let allTemplates = [];
+
+    function rowTemplate(t) {
+      return `
+        <tr class="bg-white">
+          <td class="px-3 py-2"><input type="number" class="tpl-order w-16 border rounded px-2 py-1" value="${t.order_no || ''}" /></td>
+          <td class="px-3 py-2"><input type="text" class="tpl-title w-full border rounded px-2 py-1" value="${t.title || ''}" /></td>
+          <td class="px-3 py-2"><input type="text" class="tpl-link w-full border rounded px-2 py-1" value="${t.link_url || ''}" placeholder="https://..." /></td>
+          <td class="px-3 py-2 text-center"><button class="tpl-del text-red-600 hover:text-red-700" title="삭제">🗑️</button></td>
+        </tr>`;
+    }
+
+    function renderRows(rows) {
+      tplBody.innerHTML = '';
+      if (!rows || rows.length === 0) {
+        tplBody.innerHTML = '<tr><td colspan="4" class="text-center text-gray-500 py-4">항목이 없습니다.</td></tr>';
+        return;
+      }
+      rows.forEach(r => {
+        tplBody.insertAdjacentHTML('beforeend', rowTemplate(r));
+      });
+      bindRowEvents();
+    }
+
+    function bindRowEvents() {
+      tplBody.querySelectorAll('.tpl-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const tr = btn.closest('tr');
+          // 제목으로 식별 (임시)
+          const title = tr.querySelector('.tpl-title')?.value;
+          if (title) {
+            if (!confirm('삭제하시겠습니까?')) return;
+            tr.remove();
+          } else {
+            tr.remove();
+          }
+        });
+      });
+    }
+
+    async function loadTemplates() {
+      try {
+        const res = await fetch(`/templates`);
+        const data = await res.json();
+        if (data.ok) {
+          allTemplates = data.templates || [];
+          // 콤보박스 업데이트: 타이틀만 표시
+          const opts = `<option value="">— 템플릿을 선택하세요 —</option>`;
+          templateSelect.innerHTML = opts + allTemplates.map(t => 
+            `<option value="${t.template_id}">${t.template_title}</option>`
+          ).join('');
+          renderRows([]);
+        } else {
+          alert(data.error || '로드 실패');
+        }
+      } catch (e) {
+        alert('로드 중 오류: ' + e.message);
+      }
+    }
+
+    async function loadTemplateItems(templateId) {
+      if (!templateId) {
+        renderRows([]);
+        templateDetails.classList.add('hidden');
+        return;
+      }
+      try {
+        const res = await fetch(`/templates/${templateId}/items`);
+        const data = await res.json();
+        if (data.ok) {
+          currentTemplateId = templateId;
+          renderRows(data.items || []);
+          
+          // 선택된 템플릿 상세 정보 표시
+          const template = allTemplates.find(t => t.template_id === templateId);
+          if (template) {
+            detailSubject.textContent = template.subject || '—';
+            detailDescription.textContent = template.description || '설명 없음';
+            detailCount.textContent = `${(data.items || []).length}개 항목`;
+            detailCreated.textContent = template.created_at || '—';
+            templateDetails.classList.remove('hidden');
+          }
+        } else {
+          alert(data.error || '로드 실패');
+        }
+      } catch (e) {
+        alert('오류: ' + e.message);
+      }
+    }
+
+    async function deleteRow(id) {
+      if (!currentTemplateId) return;
+      const res = await fetch(`/templates/${currentTemplateId}/items/${id}/delete`, { method: 'POST' });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || '삭제 실패');
+      }
+      await loadTemplateItems(currentTemplateId);
+    }
+
+    addRowBtn.addEventListener('click', () => {
+      tplBody.insertAdjacentHTML('beforeend', rowTemplate({ order_no: tplBody.children.length + 1 }));
+      bindRowEvents();
+    });
+
+    templateSelect.addEventListener('change', () => {
+      const tid = templateSelect.value;
+      loadTemplateItems(tid);
+    });
+
+    bulkSaveBtn.addEventListener('click', async () => {
+      if (!currentTemplateId) { alert('템플릿을 선택하세요.'); return; }
+      const rows = Array.from(tplBody.querySelectorAll('tr'));
+      const items = [];
+      rows.forEach((tr, idx) => {
+        const title = tr.querySelector('.tpl-title')?.value?.trim() || '';
+        const link = tr.querySelector('.tpl-link')?.value?.trim() || null;
+        const order = tr.querySelector('.tpl-order')?.value || idx + 1;
+        if (!title) return;
+        items.push({ title, link_url: link, order_no: Number(order) });
+      });
+
+      try {
+        if (items.length > 0) {
+          const res = await fetch(`/templates/${currentTemplateId}/items/bulk_update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || '저장 실패');
+        }
+        alert('항목이 저장되었습니다.');
+        await loadTemplateItems(currentTemplateId);
+      } catch (e) {
+        alert(e.message || '저장 중 오류');
+      }
+    });
+
+    // 초기 로드
+    loadTemplates();
+  </script>
+</body>
+</html>

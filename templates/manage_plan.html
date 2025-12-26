@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>학습 계획 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-5xl mx-auto p-8">
+    <!-- 헤더 -->
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">학습 계획 관리</h1>
+      <div class="flex gap-3">
+        <button id="openPlanChoiceModal" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">+ 새 계획 추가</button>
+        <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium">캘린더로 돌아가기</a>
+      </div>
+    </div>
+
+    <p class="text-gray-600 mb-6">원하신 새로 계획을 생성한 후 제 계획을 환영합니다.</p>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <div class="text-3xl font-bold text-blue-600 mb-2">{{ stats.total_plans }}</div>
+        <div class="text-sm text-gray-600">전체 계획</div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <div class="text-3xl font-bold text-green-600 mb-2">{{ stats.total_assigned }}</div>
+        <div class="text-sm text-gray-600">총 할당 계획</div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <div class="text-3xl font-bold text-purple-600 mb-2">{{ stats.completed }}</div>
+        <div class="text-sm text-gray-600">완료된 계획</div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <div class="text-3xl font-bold text-orange-600 mb-2">{{ stats.completion_rate }}%</div>
+        <div class="text-sm text-gray-600">완료율</div>
+      </div>
+    </div>
+
+    <!-- 계획 목록 -->
+    <div class="space-y-4">
+      {% for plan in plans %}
+      <div class="bg-white rounded-xl shadow p-6">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <h3 class="text-xl font-bold">{{ plan.title }}</h3>
+              <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">본문</span>
+            </div>
+            <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
+              <div>
+                <span class="mr-1">📚 과목:</span>
+                <span class="font-medium">{{ plan.subject }}</span>
+              </div>
+              <div>
+                <span class="mr-1">📅 생성일:</span>
+                <span>2025-10-16</span>
+              </div>
+              <div>
+                <span class="mr-1">📈 진도:</span>
+                <span>18/38</span>
+              </div>
+            </div>
+            <button class="toggle-daily-plan text-sm text-gray-500 hover:text-gray-700" data-plan-id="{{ plan.plan_id }}">
+              ▼ 일일 계획 보기 ({{ plan.days|length }}개)
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">할당 계획 끝내기</button>
+            <button class="edit-plan-btn text-blue-600 hover:text-blue-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="수정">✏️</button>
+            <button class="delete-plan-btn text-red-600 hover:text-red-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="삭제">🗑️</button>
+          </div>
+        </div>
+
+        <!-- 일일 계획 편집 섹션 -->
+        <div class="daily-plan-section hidden mt-6 border-t pt-6" data-plan-id="{{ plan.plan_id }}">
+          <h4 class="font-semibold mb-4">일일 계획 편집</h4>
+          
+          <div class="flex gap-2 mb-4">
+            <button class="add-row-btn bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">+ 행 추가</button>
+            <button class="save-daily-plan-btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">저장</button>
+            <button class="cancel-edit-btn bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">취소</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm" id="daily-plan-table-{{ plan.plan_id }}">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 text-left">학습 날짜</th>
+                  <th class="px-4 py-2 text-left">순서</th>
+                  <th class="px-4 py-2 text-left w-1/2">학습 내용 설명</th>
+                  <th class="px-4 py-2 text-center">삭제</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <!-- 예시 데이터 -->
+                <tr class="daily-plan-row">
+                  <td class="px-4 py-2">
+                    <input type="date" class="border rounded px-2 py-1 w-full" value="2025-11-29">
+                  </td>
+                  <td class="px-4 py-2">
+                    <input type="number" class="border rounded px-2 py-1 w-20" value="34">
+                  </td>
+                  <td class="px-4 py-2">
+                    <input type="text" class="border rounded px-2 py-1 w-full" value="10-2 Earth's Energy Balance" placeholder="학습 내용을 입력하세요">
+                  </td>
+                  <td class="px-4 py-2 text-center">
+                    <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 학습 계획 추가 선택 모달 -->
+  <div id="planChoiceModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[360px] shadow-lg relative text-center">
+      <button id="closePlanChoiceModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl">✕</button>
+      <h2 class="text-lg font-bold mb-5">학습 계획 추가</h2>
+      <div class="flex flex-col gap-3">
+        <button id="openNewPlan" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium">새 계획 만들기</button>
+        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-lg font-medium">기존 계획 불러오기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 새 학습 계획 만들기 모달 -->
+  <div id="newPlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[460px] shadow-lg relative">
+      <button id="closeNewPlanModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl">✕</button>
+      <h2 class="text-lg font-bold mb-4 text-center">새 학습 계획 추가</h2>
+
+      <label class="block text-sm font-medium mb-1">계획 제목</label>
+      <input id="planTitle" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: TOEFL 단어 외우기">
+
+      <label class="block text-sm font-medium mb-1">과목명</label>
+      <input id="planSubject" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: 영어">
+
+      <div class="flex gap-4 mb-4">
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">시작일</label>
+          <input id="planStart" type="date" class="w-full border rounded-lg px-3 py-2">
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">종료일</label>
+          <input id="planEnd" type="date" class="w-full border rounded-lg px-3 py-2">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelNewPlan" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">취소</button>
+        <button id="savePlanBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 계획 수정 모달 -->
+  <div id="editPlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 w-[460px] shadow-lg relative">
+      <button id="closeEditPlanModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl">✕</button>
+      <h2 class="text-lg font-bold mb-4 text-center">학습 계획 수정</h2>
+
+      <input type="hidden" id="editPlanId">
+
+      <label class="block text-sm font-medium mb-1">계획 제목</label>
+      <input id="editPlanTitle" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: TOEFL 단어 외우기">
+
+      <label class="block text-sm font-medium mb-1">과목명</label>
+      <input id="editPlanSubject" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: 영어">
+
+      <div class="flex gap-4 mb-4">
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">시작일</label>
+          <input id="editPlanStart" type="date" class="w-full border rounded-lg px-3 py-2">
+        </div>
+        <div class="flex-1">
+          <label class="block text-sm font-medium mb-1">종료일</label>
+          <input id="editPlanEnd" type="date" class="w-full border rounded-lg px-3 py-2">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelEditPlan" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">취소</button>
+        <button id="updatePlanBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const planChoiceModal = document.getElementById("planChoiceModal");
+    const editPlanModal = document.getElementById("editPlanModal");
+    const newPlanModal = document.getElementById("newPlanModal");
+    const openPlanChoiceModalBtn = document.getElementById("openPlanChoiceModal");
+    const closePlanChoiceModalBtn = document.getElementById("closePlanChoiceModal");
+    const openNewPlanBtn = document.getElementById("openNewPlan");
+    const openLoadPlanBtn = document.getElementById("openLoadPlan");
+    const closeNewPlanModalBtn = document.getElementById("closeNewPlanModal");
+    const closeEditPlanModalBtn = document.getElementById("closeEditPlanModal");
+    const cancelNewPlanBtn = document.getElementById("cancelNewPlan");
+    const cancelEditPlanBtn = document.getElementById("cancelEditPlan");
+    const savePlanBtn = document.getElementById("savePlanBtn");
+    const updatePlanBtn = document.getElementById("updatePlanBtn");
+
+    // "새 계획 추가" 버튼 클릭
+    openPlanChoiceModalBtn.addEventListener("click", () => {
+      planChoiceModal.classList.remove("hidden");
+    });
+
+    // 선택 모달 닫기
+    closePlanChoiceModalBtn.addEventListener("click", () => {
+      planChoiceModal.classList.add("hidden");
+    });
+
+    // "새 계획 만들기" 클릭
+    openNewPlanBtn.addEventListener("click", () => {
+      planChoiceModal.classList.add("hidden");
+      newPlanModal.classList.remove("hidden");
+    });
+
+    // "기존 계획 불러오기" 클릭
+    openLoadPlanBtn.addEventListener("click", () => {
+      alert("기존 계획 불러오기 기능은 준비 중입니다.");
+      planChoiceModal.classList.add("hidden");
+    });
+
+    // 새 계획 모달 닫기
+    closeNewPlanModalBtn.addEventListener("click", () => {
+      newPlanModal.classList.add("hidden");
+    });
+
+    cancelNewPlanBtn.addEventListener("click", () => {
+      newPlanModal.classList.add("hidden");
+    });
+
+    // 수정 모달 닫기
+    closeEditPlanModalBtn.addEventListener("click", () => {
+      editPlanModal.classList.add("hidden");
+    });
+
+    cancelEditPlanBtn.addEventListener("click", () => {
+      editPlanModal.classList.add("hidden");
+    });
+
+    // 저장 처리
+    savePlanBtn.addEventListener("click", async () => {
+      const title = document.getElementById("planTitle").value.trim();
+      const subject = document.getElementById("planSubject").value.trim();
+      const start = document.getElementById("planStart").value;
+      const end = document.getElementById("planEnd").value;
+
+      if (!title || !subject || !start || !end) {
+        alert("모든 항목을 입력해주세요!");
+        return;
+      }
+
+      try {
+        const res = await fetch("/plan/create", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            title: title,
+            subject: subject,
+            start_date: start,
+            end_date: end
+          })
+        });
+        
+        const data = await res.json();
+        if (data.ok) {
+          alert(data.message);
+          newPlanModal.classList.add("hidden");
+          location.reload();
+        } else {
+          alert("계획 추가 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (error) {
+        alert("서버 오류: " + error.message);
+      }
+    });
+
+    // 계획 수정 버튼
+    document.querySelectorAll(".edit-plan-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        
+        // 현재 계획 데이터 가져오기
+        const planCard = e.target.closest('.bg-white');
+        const title = planCard.querySelector('h3').textContent;
+        const subjectSpan = planCard.querySelector('.font-medium');
+        const subject = subjectSpan ? subjectSpan.textContent : '';
+        
+        // 모달에 현재 값 채우기
+        document.getElementById("editPlanId").value = planId;
+        document.getElementById("editPlanTitle").value = title;
+        document.getElementById("editPlanSubject").value = subject;
+        
+        // 모달 열기
+        editPlanModal.classList.remove("hidden");
+      });
+    });
+
+    // 계획 수정 저장
+    updatePlanBtn.addEventListener("click", async () => {
+      const planId = document.getElementById("editPlanId").value;
+      const title = document.getElementById("editPlanTitle").value.trim();
+      const subject = document.getElementById("editPlanSubject").value.trim();
+      const start = document.getElementById("editPlanStart").value;
+      const end = document.getElementById("editPlanEnd").value;
+
+      if (!title || !subject) {
+        alert("제목과 과목은 필수 항목입니다!");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/plan/${planId}/update`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            title: title,
+            subject: subject,
+            start_date: start,
+            end_date: end
+          })
+        });
+        
+        const data = await res.json();
+        if (data.ok) {
+          alert(data.message);
+          editPlanModal.classList.add("hidden");
+          location.reload();
+        } else {
+          alert("계획 수정 실패: " + (data.error || "알 수 없는 오류"));
+        }
+      } catch (error) {
+        alert("서버 오류: " + error.message);
+      }
+    });
+
+    // 계획 삭제 버튼
+    document.querySelectorAll(".delete-plan-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        const planCard = e.target.closest('.bg-white');
+        const title = planCard.querySelector('h3').textContent;
+        
+        if (!confirm(`"${title}" 계획을 정말 삭제하시겠습니까?\n\n삭제하면 모든 일일 계획도 함께 삭제됩니다.`)) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`/plan/${planId}/delete`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"}
+          });
+          
+          const data = await res.json();
+          if (data.ok) {
+            alert(data.message);
+            location.reload();
+          } else {
+            alert("계획 삭제 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        } catch (error) {
+          alert("서버 오류: " + error.message);
+        }
+      });
+    });
+
+    // 모달 외부 클릭 시 닫기
+    planChoiceModal.addEventListener("click", (e) => {
+      if (e.target === planChoiceModal) {
+        planChoiceModal.classList.add("hidden");
+      }
+    });
+
+    newPlanModal.addEventListener("click", (e) => {
+      if (e.target === newPlanModal) {
+        newPlanModal.classList.add("hidden");
+      }
+    });
+
+    editPlanModal.addEventListener("click", (e) => {
+      if (e.target === editPlanModal) {
+        editPlanModal.classList.add("hidden");
+      }
+    });
+
+    // 일일 계획 편집 토글
+    document.querySelectorAll(".toggle-daily-plan").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        const section = document.querySelector(`.daily-plan-section[data-plan-id="${planId}"]`);
+        
+        if (section.classList.contains("hidden")) {
+          // 기존 데이터 로드
+          await loadDailyPlans(planId);
+          
+          section.classList.remove("hidden");
+          e.target.textContent = `▲ 일일 계획 숨기기`;
+        } else {
+          section.classList.add("hidden");
+          e.target.textContent = `▼ 일일 계획 보기`;
+        }
+      });
+    });
+
+    // 일일 계획 데이터 로드 함수
+    async function loadDailyPlans(planId) {
+      try {
+        const res = await fetch(`/plan/${planId}/daily`);
+        const data = await res.json();
+        
+        if (data.ok && data.daily_plans && data.daily_plans.length > 0) {
+          const tbody = document.querySelector(`#daily-plan-table-${planId} tbody`);
+          tbody.innerHTML = ''; // 기존 내용 제거
+          
+          data.daily_plans.forEach(plan => {
+            const newRow = document.createElement("tr");
+            newRow.className = "daily-plan-row";
+            newRow.innerHTML = `
+              <td class="px-4 py-2">
+                <input type="date" class="border rounded px-2 py-1 w-full" value="${plan.date || ''}">
+              </td>
+              <td class="px-4 py-2">
+                <input type="number" class="border rounded px-2 py-1 w-20" value="${plan.order || ''}">
+              </td>
+              <td class="px-4 py-2">
+                <input type="text" class="border rounded px-2 py-1 w-full" value="${plan.description || ''}" placeholder="학습 내용을 입력하세요">
+              </td>
+              <td class="px-4 py-2 text-center">
+                <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
+              </td>
+            `;
+            tbody.appendChild(newRow);
+          });
+        }
+      } catch (error) {
+        console.error("데이터 로드 오류:", error);
+      }
+    }
+
+    // 행 추가 버튼
+    document.querySelectorAll(".add-row-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const planId = e.target.dataset.planId;
+        const tbody = document.querySelector(`#daily-plan-table-${planId} tbody`);
+        
+        const newRow = document.createElement("tr");
+        newRow.className = "daily-plan-row";
+        newRow.innerHTML = `
+          <td class="px-4 py-2">
+            <input type="date" class="border rounded px-2 py-1 w-full" value="${new Date().toISOString().split('T')[0]}">
+          </td>
+          <td class="px-4 py-2">
+            <input type="number" class="border rounded px-2 py-1 w-20" value="1">
+          </td>
+          <td class="px-4 py-2">
+            <input type="text" class="border rounded px-2 py-1 w-full" placeholder="학습 내용을 입력하세요">
+          </td>
+          <td class="px-4 py-2 text-center">
+            <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
+          </td>
+        `;
+        
+        tbody.appendChild(newRow);
+        
+        // 새로 추가된 행의 삭제 버튼에 이벤트 추가
+        newRow.querySelector(".delete-row-btn").addEventListener("click", function() {
+          if (confirm("이 행을 삭제하시겠습니까?")) {
+            newRow.remove();
+          }
+        });
+      });
+    });
+
+    // 행 삭제 버튼
+    document.addEventListener("click", (e) => {
+      if (e.target.classList.contains("delete-row-btn") || e.target.closest(".delete-row-btn")) {
+        const btn = e.target.classList.contains("delete-row-btn") ? e.target : e.target.closest(".delete-row-btn");
+        if (confirm("이 행을 삭제하시겠습니까?")) {
+          btn.closest("tr").remove();
+        }
+      }
+    });
+
+    // 일일 계획 저장
+    document.querySelectorAll(".save-daily-plan-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.target.dataset.planId;
+        const rows = document.querySelectorAll(`#daily-plan-table-${planId} tbody tr`);
+        
+        const dailyPlans = [];
+        rows.forEach(row => {
+          const inputs = row.querySelectorAll("input");
+          dailyPlans.push({
+            date: inputs[0].value,
+            order: parseInt(inputs[1].value) || 0,
+            description: inputs[2].value
+          });
+        });
+
+        try {
+          const res = await fetch(`/plan/${planId}/daily`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ daily_plans: dailyPlans })
+          });
+          
+          const data = await res.json();
+          if (data.ok) {
+            alert("일일 계획이 저장되었습니다!");
+          } else {
+            alert("저장 실패: " + (data.error || "알 수 없는 오류"));
+          }
+        } catch (error) {
+          alert("서버 오류: " + error.message);
+        }
+      });
+    });
+
+    // 취소 버튼
+    document.querySelectorAll(".cancel-edit-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const planId = e.target.dataset.planId;
+        const section = document.querySelector(`.daily-plan-section[data-plan-id="${planId}"]`);
+        section.classList.add("hidden");
+        
+        const toggleBtn = document.querySelector(`.toggle-daily-plan[data-plan-id="${planId}"]`);
+        toggleBtn.textContent = `▼ 일일 계획 보기`;
+      });
+    });
+  });
+  </script>
+</body>
+</html>
+
