@@ -12,7 +12,6 @@ RUN apt-get update \
         curl \
         gnupg \
         ca-certificates \
-        apt-transport-https \
         gcc \
         g++ \
         unixodbc-dev \
