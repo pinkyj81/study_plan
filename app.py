@@ -43,11 +43,13 @@ def month_days(year, month):
 
 # DB에서 학습계획 가져오기
 def get_plans_from_db():
-    """데이터베이스에서 학습계획 조회"""
+    """데이터베이스에서 학습계획 조회 (로그인한 유저의 계획만)"""
+    user_id = session.get('user_id', 1)
     # 한 번의 쿼리로 모든 데이터 조회 (JOIN 사용)
     query = text("""
         SELECT 
             p.plan_id,
+            p.user_id,
             p.title,
             p.subject,
             p.created_at,
@@ -64,10 +66,11 @@ def get_plans_from_db():
             ) as status
         FROM dbo.study_plan p
         LEFT JOIN dbo.study_plan_task t ON p.plan_id = t.plan_id
+        WHERE p.user_id = :user_id
         ORDER BY p.created_at DESC, t.plan_date, t.order_no
     """)
     
-    result = db.session.execute(query).fetchall()
+    result = db.session.execute(query, {"user_id": user_id}).fetchall()
     
     # 결과를 계획별로 그룹화
     plans_dict = {}
@@ -461,15 +464,17 @@ def day_update():
 @app.route("/plan/create", methods=["POST"])
 def create_plan():
     data = request.get_json(force=True)
+    user_id = session.get('user_id', 1)
     
     try:
         # DB에 새 계획 추가
         insert_query = text("""
-            INSERT INTO dbo.study_plan (title, subject, created_at)
-            VALUES (:title, :subject, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, created_at)
+            VALUES (:user_id, :title, :subject, SYSDATETIMEOFFSET())
         """)
         
         db.session.execute(insert_query, {
+            "user_id": user_id,
             "title": data["title"],
             "subject": data["subject"]
         })
@@ -496,6 +501,7 @@ def create_plan():
 def create_plan_from_template():
     """템플릿에서 새 계획 생성: 템플릿 항목들을 날짜 범위에 맞춰 일일 계획으로 변환"""
     data = request.get_json(force=True)
+    user_id = session.get('user_id', 1)
     
     try:
         source_template_id = data.get("source_template_id")
@@ -503,22 +509,38 @@ def create_plan_from_template():
         subject = data.get("subject")
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
+        selected_weekdays = data.get("selected_weekdays", [])
         
         if not all([source_template_id, title, subject, start_date_str, end_date_str]):
             return jsonify({"ok": False, "error": "필수 항목이 누락되었습니다."}), 400
+        if not selected_weekdays:
+            return jsonify({"ok": False, "error": "요일을 최소 1개 선택하세요."}), 400
         
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         
         if start_date > end_date:
             return jsonify({"ok": False, "error": "시작일이 종료일보다 늦습니다."}), 400
+
+        weekday_map = {
+            "mon": 0,
+            "tue": 1,
+            "wed": 2,
+            "thu": 3,
+            "fri": 4,
+            "sat": 5,
+            "sun": 6,
+        }
+        allowed_weekdays = {weekday_map[w] for w in selected_weekdays if w in weekday_map}
+        if not allowed_weekdays:
+            return jsonify({"ok": False, "error": "유효한 요일이 없습니다."}), 400
         
         # 1. 새 계획 생성
         insert_plan = text("""
-            INSERT INTO dbo.study_plan (title, subject, created_at)
-            VALUES (:title, :subject, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, created_at)
+            VALUES (:user_id, :title, :subject, SYSDATETIMEOFFSET())
         """)
-        db.session.execute(insert_plan, {"title": title, "subject": subject})
+        db.session.execute(insert_plan, {"user_id": user_id, "title": title, "subject": subject})
         db.session.commit()
         
         # 새 plan_id 가져오기
@@ -537,39 +559,39 @@ def create_plan_from_template():
         if not templates:
             return jsonify({"ok": False, "error": "선택한 템플릿에 항목이 없습니다."}), 400
         
-        # 3. 날짜 범위 계산
-        total_days = (end_date - start_date).days + 1
-        template_count = len(templates)
-        
-        # 템플릿을 날짜에 균등 분배
-        current_date = start_date
         task_insert = text("""
             INSERT INTO dbo.study_plan_task (plan_id, plan_date, task_title, order_no, link_url, created_at)
             VALUES (:plan_id, :plan_date, :task_title, :order_no, :link_url, SYSDATETIMEOFFSET())
         """)
-        
+
+        current_date = start_date
+        idx = 0
         created_count = 0
-        for idx, template in enumerate(templates):
-            if current_date > end_date:
-                break
-            
-            db.session.execute(task_insert, {
-                "plan_id": new_plan_id,
-                "plan_date": current_date,
-                "task_title": template.title,
-                "order_no": idx + 1,
-                "link_url": template.link_url
-            })
-            created_count += 1
-            
-            # 다음 날짜로 이동
+        total_templates = len(templates)
+
+        while current_date <= end_date and idx < total_templates:
+            if current_date.weekday() in allowed_weekdays:
+                template = templates[idx]
+                db.session.execute(task_insert, {
+                    "plan_id": new_plan_id,
+                    "plan_date": current_date,
+                    "task_title": template.title,
+                    "order_no": idx + 1,
+                    "link_url": template.link_url
+                })
+                created_count += 1
+                idx += 1
             current_date = current_date + timedelta(days=1)
         
         db.session.commit()
+
+        message = f"'{title}' 계획이 생성되었습니다!"
+        if created_count < total_templates:
+            message += f" (템플릿 {total_templates}개 중 {created_count}개만 배치됨)"
         
         return jsonify({
             "ok": True,
-            "message": f"'{title}' 계획이 생성되었습니다!",
+            "message": message,
             "plan_id": new_plan_id,
             "count": created_count
         })

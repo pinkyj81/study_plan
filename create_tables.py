@@ -36,9 +36,12 @@ def create_tables():
                 BEGIN
                     CREATE TABLE dbo.study_plan (
                         plan_id INT PRIMARY KEY IDENTITY(1,1),
+                        user_id INT NOT NULL,
                         title NVARCHAR(100) NOT NULL,
                         subject NVARCHAR(50) NULL,
-                        created_at DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+                        created_at DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+                        CONSTRAINT FK_plan_user FOREIGN KEY (user_id) 
+                            REFERENCES dbo.study_plan_user(user_id)
                     )
                 END
             """)

@@ -241,6 +241,20 @@
       <label class="block text-sm font-medium mb-1">과목명</label>
       <input id="loadTemplateSubject" type="text" class="w-full border rounded px-2 py-1 mb-3" placeholder="예: 영어">
 
+      <div class="mb-3">
+        <span class="block text-sm font-medium mb-2">요일 선택</span>
+        <div class="flex gap-3 text-sm">
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="mon" checked>월</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="tue" checked>화</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="wed" checked>수</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="thu" checked>목</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="fri" checked>금</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="sat" checked>토</label>
+          <label class="flex items-center gap-1"><input type="checkbox" class="weekday-checkbox" value="sun" checked>일</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">선택한 요일에만 템플릿 순서대로 일정이 배치됩니다.</p>
+      </div>
+
       <div class="flex gap-4 mb-3">
         <div class="flex-1">
           <label class="block text-sm font-medium mb-1">시작일</label>
@@ -1148,9 +1162,15 @@
       const newSubject = document.getElementById("loadTemplateSubject").value.trim();
       const startDate = document.getElementById("loadTemplateStart").value;
       const endDate = document.getElementById("loadTemplateEnd").value;
+      const selectedWeekdays = Array.from(document.querySelectorAll('.weekday-checkbox:checked')).map(cb => cb.value);
 
       if (!sourceTemplateId || !newTitle || !newSubject || !startDate || !endDate) {
         alert("모든 항목을 입력해주세요!");
+        return;
+      }
+
+      if (!selectedWeekdays.length) {
+        alert("최소 한 개의 요일을 선택하세요.");
         return;
       }
 
@@ -1163,7 +1183,8 @@
             title: newTitle,
             subject: newSubject,
             start_date: startDate,
-            end_date: endDate
+            end_date: endDate,
+            selected_weekdays: selectedWeekdays
           })
         });
 
