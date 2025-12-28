@@ -131,9 +131,9 @@
         </select>
       </div>
 
-      <div class="flex gap-4 flex-wrap">
+      <div class="grid grid-cols-4 gap-4">
         {% for p in plans %}
-          <div class="border p-4 rounded-xl w-72 hover:shadow-md plan-card" data-plan-id="{{ p.plan_id }}" style="border-left: 4px solid {{ p.color }}; background: linear-gradient(135deg, {{ p.color }}10 0%, white 100%);">
+          <div class="border p-4 rounded-xl hover:shadow-md plan-card" data-plan-id="{{ p.plan_id }}" style="border-left: 4px solid {{ p.color }}; background: linear-gradient(135deg, {{ p.color }}10 0%, white 100%);">
             <div class="font-semibold mb-1">
               <span class="plan-color-indicator" style="background-color: {{ p.color }};"></span>{{ p.title }}
             </div>
@@ -157,7 +157,16 @@
             {% if d %}
               {% set color_style = "" %}
               {% if d.color %}
-                {% if d.status == 'done' %}
+                {% if d.multiple %}
+                  {# 여러 계획이 있는 경우 진한 남색 #}
+                  {% if d.all_done %}
+                    {# 모든 계획이 완료된 경우 남색으로 채움 #}
+                    {% set color_style = "background-color: #1e40af; color: #ffffff; font-weight: 700; border: 2px solid #1e40af;" %}
+                  {% else %}
+                    {# 일부만 완료된 경우 남색 테두리만 #}
+                    {% set color_style = "background-color: transparent; color: #333; font-weight: 500; border: 2px solid #1e40af;" %}
+                  {% endif %}
+                {% elif d.status == 'done' %}
                   {% set color_style = "background-color: " + d.color + "; color: #ffffff; font-weight: 700; border: 2px solid " + d.color + ";" %}
                 {% elif d.status == 'partial' %}
                   {% set color_style = "background-color: " + d.color + "; color: #2f2a55; font-weight: 600; border: 2px solid " + d.color + ";" %}
@@ -285,6 +294,37 @@
       <div class="flex justify-end gap-2">
         <button id="cancelLoadTemplate" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded">취소</button>
         <button id="confirmLoadTemplate" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">생성</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 계획 상세 보기 모달 -->
+  <div id="planDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-lg relative">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <h2 id="planDetailTitle" class="text-xl font-bold"></h2>
+        <button id="closePlanDetailModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+      
+      <!-- 프로그레스 바 -->
+      <div class="px-6 pt-4 pb-4 bg-gray-50 border-b">
+        <div class="relative w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+          <div id="progressBar" class="h-8 rounded-full transition-all duration-500 flex items-center justify-start pl-4" style="width: 0%;">
+            <span id="statProgress" class="text-sm font-bold text-white"></span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <!-- 달력 그리드 -->
+        <div id="planCalendarGrid" class="grid grid-cols-10 gap-2 mb-6">
+          <!-- 달력이 동적으로 추가됩니다 -->
+        </div>
+        
+        <!-- 일일 계획 리스트 -->
+        <div id="planDetailContent" class="space-y-3">
+          <!-- 일일 계획 목록이 동적으로 추가됩니다 -->
+        </div>
       </div>
     </div>
   </div>
@@ -780,8 +820,10 @@
               if (!result.ok) {
                 alert(result.error || "저장 중 오류가 발생했습니다.");
                 e.target.checked = !isCompleted; // 되돌리기
+              } else {
+                // 체크 시 페이지 새로고침하여 달력 업데이트
+                location.reload();
               }
-              // 체크 시 즉시 페이지 새로고침하지 않음
             });
           });
         } else {
@@ -799,6 +841,146 @@
       modal.classList.add("hidden");
       location.reload(); // 모달 닫을 때 캘린더 업데이트
     });
+
+    // 계획 카드 클릭 이벤트 - 상세 모달 열기
+    document.querySelectorAll('.plan-card').forEach(card => {
+      card.addEventListener('click', async (e) => {
+        const planId = card.dataset.planId;
+        const planTitle = card.querySelector('.font-semibold').textContent.trim();
+        const planColor = card.querySelector('.plan-color-indicator').style.backgroundColor;
+        
+        // 모달 열기
+        const modal = document.getElementById('planDetailModal');
+        const titleEl = document.getElementById('planDetailTitle');
+        const contentEl = document.getElementById('planDetailContent');
+        
+        titleEl.textContent = planTitle;
+        contentEl.innerHTML = '<div class="text-center py-8 text-gray-500">로딩 중...</div>';
+        modal.classList.remove('hidden');
+        
+        try {
+          // 일일 계획 가져오기
+          const res = await fetch(`/plan/${planId}/daily`);
+          const data = await res.json();
+          
+          if (data.ok && data.daily_plans.length > 0) {
+            // 통계 계산
+            const total = data.daily_plans.length;
+            const done = data.daily_plans.filter(p => p.status === 'done').length;
+            const planned = data.daily_plans.filter(p => p.status === 'planned').length;
+            const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+            
+            // 프로그레스 바 업데이트
+            document.getElementById('statProgress').textContent = progress + '%';
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressBar').style.background = planColor;
+            
+            // 달력 그리드 생성 (계획 순서대로)
+            const calendarGrid = document.getElementById('planCalendarGrid');
+            
+            let calendarHTML = data.daily_plans.map((plan, index) => {
+              const day = index + 1;
+              const status = plan.status;
+              
+              let cellStyle = '';
+              if (status === 'done') {
+                cellStyle = `background-color: ${planColor}; color: #fff; font-weight: 700; border: 2px solid ${planColor};`;
+              } else if (status === 'planned') {
+                cellStyle = `background-color: transparent; color: #333; font-weight: 500; border: 2px solid ${planColor};`;
+              } else {
+                cellStyle = 'background-color: white; color: #333; border: 1px solid #e5e7eb;';
+              }
+              
+              return `
+                <div class="w-12 h-12 flex items-center justify-center rounded-lg text-xs cursor-pointer hover:opacity-80"
+                     style="${cellStyle}">
+                  ${day}
+                </div>
+              `;
+            }).join('');
+            
+            calendarGrid.innerHTML = calendarHTML;
+            
+            // 리스트 형태로 표시
+            contentEl.innerHTML = data.daily_plans.map(plan => `
+              <div class="bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                <div class="flex items-center justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-1">
+                      <span class="text-sm text-gray-600">${plan.date}</span>
+                      <span class="px-2 py-0.5 text-xs rounded-full font-medium ${
+                        plan.status === 'done' ? 'bg-green-100 text-green-700' :
+                        plan.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
+                      }">${
+                        plan.status === 'done' ? '완료' :
+                        plan.status === 'partial' ? '부분완료' :
+                        '예정'
+                      }</span>
+                    </div>
+                    <div class="font-medium text-base mb-1">${plan.description || '내용 없음'}</div>
+                    ${plan.link_url ? `
+                      <a href="${plan.link_url.startsWith('http://') || plan.link_url.startsWith('https://') ? plan.link_url : 'https://' + plan.link_url}" 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         class="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                         onclick="event.stopPropagation()">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        링크 열기
+                      </a>
+                    ` : ''}
+                  </div>
+                  <label class="flex items-center cursor-pointer ml-4" onclick="event.stopPropagation()">
+                    <input type="checkbox" 
+                           class="w-6 h-6 rounded-md border-2 border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                           style="accent-color: ${planColor};"
+                           data-task-id="${plan.task_id}"
+                           ${plan.status === 'done' ? 'checked' : ''}
+                           onchange="toggleTaskStatus(${plan.task_id}, this.checked)">
+                  </label>
+                </div>
+              </div>
+            `).join('');
+          } else {
+            calendarGrid.innerHTML = '';
+            contentEl.innerHTML = '<div class="text-center py-8 text-gray-500">등록된 일일 계획이 없습니다.</div>';
+          }
+        } catch (err) {
+          console.error(err);
+          contentEl.innerHTML = '<div class="text-center py-8 text-red-500">오류가 발생했습니다.</div>';
+        }
+      });
+    });
+    
+    // 계획 상세 모달 닫기
+    document.getElementById('closePlanDetailModal').addEventListener('click', () => {
+      document.getElementById('planDetailModal').classList.add('hidden');
+    });
+    
+    // 체크박스 상태 변경 함수
+    window.toggleTaskStatus = async function(taskId, isCompleted) {
+      try {
+        const res = await fetch('/day/update', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            task_id: taskId,
+            completed: isCompleted
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          // 성공 시 캘린더 새로고침은 하지 않음 (모달 내에서만 표시)
+        } else {
+          alert('상태 업데이트 실패: ' + data.error);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('오류가 발생했습니다.');
+      }
+    };
 
     // 계획 카드 내 버튼 클릭 시 카드 링크 방지
     document.querySelectorAll('.toggle-daily-plan-modal, .add-row-btn-modal, .save-daily-plan-btn-modal, .cancel-edit-btn-modal').forEach(btn => {

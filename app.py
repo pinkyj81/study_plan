@@ -126,11 +126,24 @@ def generate_fake_calendar(year, plan_id=None):
             date_str = dp.get("date")
             status = dp.get("status", "planned")  # planned, done, partial, missed
             if date_str:
-                daily_plan_map[date_str] = {
-                    "status": status,
-                    "color": plan_color,
-                    "plan_id": plan_id_num
-                }
+                # 여러 계획이 있는 경우 처리
+                if date_str in daily_plan_map:
+                    daily_plan_map[date_str]["multiple"] = True
+                    daily_plan_map[date_str]["total_count"] += 1
+                    if status == "done":
+                        daily_plan_map[date_str]["done_count"] += 1
+                    # done 상태가 하나라도 있으면 done 유지
+                    if status == "done" or daily_plan_map[date_str]["status"] == "done":
+                        daily_plan_map[date_str]["status"] = "done"
+                else:
+                    daily_plan_map[date_str] = {
+                        "status": status,
+                        "color": plan_color,
+                        "plan_id": plan_id_num,
+                        "multiple": False,
+                        "total_count": 1,
+                        "done_count": 1 if status == "done" else 0
+                    }
     
     for m in range(1, 13):
         month_list = []
@@ -143,10 +156,18 @@ def generate_fake_calendar(year, plan_id=None):
                 # 일일 계획에서 상태와 색상 확인
                 color = None
                 plan_id_val = None
+                is_multiple = False
+                all_done = False
                 if date_str in daily_plan_map:
                     status = daily_plan_map[date_str]["status"]
                     color = daily_plan_map[date_str]["color"]
                     plan_id_val = daily_plan_map[date_str]["plan_id"]
+                    is_multiple = daily_plan_map[date_str].get("multiple", False)
+                    # 여러 계획이 있는 경우, 모두 완료되었는지 확인
+                    if is_multiple:
+                        total = daily_plan_map[date_str].get("total_count", 0)
+                        done = daily_plan_map[date_str].get("done_count", 0)
+                        all_done = (total > 0 and total == done)
                 elif d < today:
                     status = "none"  # 계획 없음 (과거)
                 else:
@@ -161,7 +182,9 @@ def generate_fake_calendar(year, plan_id=None):
                     "is_today": is_today,
                     "day_id": f"{m:02d}{d.day:02d}",
                     "color": color,
-                    "plan_id": plan_id_val
+                    "plan_id": plan_id_val,
+                    "multiple": is_multiple,
+                    "all_done": all_done
                 })
         data[m] = month_list
     return data
