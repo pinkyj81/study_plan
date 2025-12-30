@@ -63,7 +63,7 @@
               </div>
             </div>
             <button class="toggle-daily-plan text-sm text-gray-500 hover:text-gray-700" data-plan-id="{{ plan.plan_id }}">
-              ▼ 일일 계획 보기 ({{ plan.days|length }}개)
+              ▼ 일일 계획 보기 ({{ plan.daily_plans|length }}개)
             </button>
           </div>
           <div class="flex gap-2">
@@ -125,7 +125,7 @@
       <h2 class="text-lg font-bold mb-5">학습 계획 추가</h2>
       <div class="flex flex-col gap-3">
         <button id="openNewPlan" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-medium">새 계획 만들기</button>
-        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-lg font-medium">기존 계획 불러오기</button>
+        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-lg font-medium">템플릿 불러오기</button>
       </div>
     </div>
   </div>
@@ -224,9 +224,9 @@
       newPlanModal.classList.remove("hidden");
     });
 
-    // "기존 계획 불러오기" 클릭
+    // "템플릿 불러오기" 클릭
     openLoadPlanBtn.addEventListener("click", () => {
-      alert("기존 계획 불러오기 기능은 준비 중입니다.");
+      alert("템플릿 불러오기 기능은 준비 중입니다.");
       planChoiceModal.classList.add("hidden");
     });
 

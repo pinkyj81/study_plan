@@ -88,7 +88,6 @@ def get_plans_from_db():
                 "subject": row.subject,
                 "created_at": row.created_at.strftime("%Y-%m-%d") if row.created_at else "",
                 "color": PLAN_COLORS[color_idx],
-                "days": [],  # 호환성 유지
                 "daily_plans": []
             }
         
@@ -243,7 +242,7 @@ def logout():
 @app.route("/")
 @app.route("/<int:year>")
 @login_required
-def index(year=2025):
+def index(year=2026):
     # DB에서 학습계획 가져오기
     plans = get_plans_from_db()
     # 선택된 계획 필터 (쿼리 파라미터)
@@ -281,7 +280,7 @@ def index(year=2025):
     return render_template(
         "index.html",
         year=year,
-        available_years=[2024, 2025, 2026, 2027],
+        available_years=[2025, 2026, 2027],
         plans=plans,
         active_plan=active_plan or (plans[0] if plans else None),
         calendar_data=calendar_data,

@@ -87,33 +87,13 @@
         </select>
       </div>
     </div>
-
-    <!-- 범례 -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-8">
-      <div class="mb-3">
-        <span class="text-sm font-semibold text-gray-700">계획별 색상</span>
-      </div>
-      <div class="flex justify-center items-center gap-6 flex-wrap">
-        {% for p in plans %}
-        <div class="flex items-center gap-2">
-          <div class="w-4 h-4 rounded-full" style="background-color: {{ p.color }};"></div>
-          <span class="text-sm">{{ p.title }}</span>
-        </div>
-        {% endfor %}
-        <div class="flex items-center gap-2">
-          <div class="w-4 h-4 rounded-full border-2 border-gray-300"></div>
-          <span class="text-sm">계획 없음</span>
-        </div>
-      </div>
-    </div>
-
     <!-- 학습 계획 선택 -->
     <div class="bg-white p-4 rounded-2xl shadow mb-8">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-semibold">학습 계획 선택</h2>
         <div class="flex gap-3">
+          <button id="openPlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">새 계획</button>
           <button id="openManagePlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">계획수정</button>
-          <button id="openPlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">+ 새 계획</button>
           <button id="openCreateTemplateModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">새 템플릿</button>
           <button id="openTemplateManageModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">템플릿 수정</button>
         </div>
@@ -138,7 +118,7 @@
               <span class="plan-color-indicator" style="background-color: {{ p.color }};"></span>{{ p.title }}
             </div>
             <div class="text-sm text-gray-500">과목: {{ p.subject }}</div>
-            <div class="text-xs text-gray-400">일일 계획: {{ p.days|length }}개</div>
+            <div class="text-xs text-gray-400">일일 계획: {{ p.daily_plans|length }}개</div>
           </div>
         {% endfor %}
       </div>
@@ -199,7 +179,7 @@
       <h2 class="text-lg font-bold mb-5">학습 계획 추가</h2>
       <div class="flex flex-col gap-3">
         <button id="openNewPlan" class="bg-blue-500 hover:bg-blue-600 text-white py-2 rounded">새 계획 만들기</button>
-        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded">기존 계획 불러오기</button>
+        <button id="openLoadPlan" class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded">템플릿 불러오기</button>
       </div>
     </div>
   </div>
@@ -1554,10 +1534,20 @@
           await loadDailyPlansModal(planId);
           
           section.classList.remove("hidden");
-          e.target.textContent = `▲ 일일 계획 숨기기`;
+          
+          // 데이터 로드 후 개수 계산 (약간의 지연을 두고)
+          setTimeout(() => {
+            const tbody = document.querySelector(`#daily-plan-table-modal-${planId} tbody`);
+            const dailyPlansCount = tbody?.querySelectorAll('tr').length || 0;
+            e.target.textContent = `▲ 상세계획 (${dailyPlansCount})`;
+          }, 100);
         } else {
+          // 현재 개수 가져오기
+          const tbody = document.querySelector(`#daily-plan-table-modal-${planId} tbody`);
+          const dailyPlansCount = tbody?.querySelectorAll('tr').length || 0;
+          
           section.classList.add("hidden");
-          e.target.textContent = `▼ 일일 계획 보기`;
+          e.target.textContent = `▼ 상세계획 (${dailyPlansCount})`;
         }
       });
     });
@@ -1700,7 +1690,9 @@
         section.classList.add("hidden");
         
         const toggleBtn = document.querySelector(`.toggle-daily-plan-modal[data-plan-id="${planId}"]`);
-        toggleBtn.textContent = `▼ 일일 계획 보기`;
+        const tbody = document.querySelector(`#daily-plan-table-modal-${planId} tbody`);
+        const dailyPlansCount = tbody?.querySelectorAll('tr').length || 0;
+        toggleBtn.textContent = `▼ 상세계획 (${dailyPlansCount})`;
       });
     });
 
