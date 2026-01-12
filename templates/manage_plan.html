@@ -142,6 +142,9 @@
       <label class="block text-sm font-medium mb-1">과목명</label>
       <input id="planSubject" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: 영어">
 
+      <label class="block text-sm font-medium mb-1">이미지 URL</label>
+      <input id="planImageUrl" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: https://example.com/image.jpg">
+
       <div class="flex gap-4 mb-4">
         <div class="flex-1">
           <label class="block text-sm font-medium mb-1">시작일</label>
@@ -173,6 +176,9 @@
 
       <label class="block text-sm font-medium mb-1">과목명</label>
       <input id="editPlanSubject" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: 영어">
+
+      <label class="block text-sm font-medium mb-1">이미지 URL</label>
+      <input id="editPlanImageUrl" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: https://example.com/image.jpg">
 
       <div class="flex gap-4 mb-4">
         <div class="flex-1">
@@ -252,6 +258,7 @@
     savePlanBtn.addEventListener("click", async () => {
       const title = document.getElementById("planTitle").value.trim();
       const subject = document.getElementById("planSubject").value.trim();
+      const imageUrl = document.getElementById("planImageUrl").value.trim();
       const start = document.getElementById("planStart").value;
       const end = document.getElementById("planEnd").value;
 
@@ -267,6 +274,7 @@
           body: JSON.stringify({
             title: title,
             subject: subject,
+            image_url: imageUrl,
             start_date: start,
             end_date: end
           })
@@ -290,16 +298,17 @@
       btn.addEventListener("click", async (e) => {
         const planId = e.target.dataset.planId;
         
-        // 현재 계획 데이터 가져오기
-        const planCard = e.target.closest('.bg-white');
-        const title = planCard.querySelector('h3').textContent;
-        const subjectSpan = planCard.querySelector('.font-medium');
-        const subject = subjectSpan ? subjectSpan.textContent : '';
+        // plans 데이터에서 현재 계획 찾기
+        const plans = {{ plans_json | safe }};
+        const currentPlan = plans.find(p => p.plan_id == planId);
         
-        // 모달에 현재 값 채우기
-        document.getElementById("editPlanId").value = planId;
-        document.getElementById("editPlanTitle").value = title;
-        document.getElementById("editPlanSubject").value = subject;
+        if (currentPlan) {
+          // 모달에 현재 값 채우기
+          document.getElementById("editPlanId").value = planId;
+          document.getElementById("editPlanTitle").value = currentPlan.title || '';
+          document.getElementById("editPlanSubject").value = currentPlan.subject || '';
+          document.getElementById("editPlanImageUrl").value = currentPlan.image_url || '';
+        }
         
         // 모달 열기
         editPlanModal.classList.remove("hidden");
@@ -311,6 +320,7 @@
       const planId = document.getElementById("editPlanId").value;
       const title = document.getElementById("editPlanTitle").value.trim();
       const subject = document.getElementById("editPlanSubject").value.trim();
+      const imageUrl = document.getElementById("editPlanImageUrl").value.trim();
       const start = document.getElementById("editPlanStart").value;
       const end = document.getElementById("editPlanEnd").value;
 
@@ -326,6 +336,7 @@
           body: JSON.stringify({
             title: title,
             subject: subject,
+            image_url: imageUrl,
             start_date: start,
             end_date: end
           })

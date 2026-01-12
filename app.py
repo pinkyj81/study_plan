@@ -52,6 +52,7 @@ def get_plans_from_db():
             p.user_id,
             p.title,
             p.subject,
+            p.image_url,
             p.created_at,
             t.task_id,
             t.plan_date,
@@ -86,6 +87,7 @@ def get_plans_from_db():
                 "plan_id": plan_id,
                 "title": row.title,
                 "subject": row.subject,
+                "image_url": row.image_url if hasattr(row, 'image_url') else None,
                 "created_at": row.created_at.strftime("%Y-%m-%d") if row.created_at else "",
                 "color": PLAN_COLORS[color_idx],
                 "daily_plans": []
@@ -493,20 +495,22 @@ def create_plan():
     try:
         title = data.get("title")
         subject = data.get("subject")
+        image_url = data.get("image_url")
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
         selected_weekdays = data.get("selected_weekdays", [])
         
         # 1. DB에 새 계획 추가
         insert_query = text("""
-            INSERT INTO dbo.study_plan (user_id, title, subject, created_at)
-            VALUES (:user_id, :title, :subject, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, created_at)
+            VALUES (:user_id, :title, :subject, :image_url, SYSDATETIMEOFFSET())
         """)
         
         db.session.execute(insert_query, {
             "user_id": user_id,
             "title": title,
-            "subject": subject
+            "subject": subject,
+            "image_url": image_url
         })
         db.session.commit()
         
@@ -599,10 +603,15 @@ def create_plan_from_template():
         
         # 1. 새 계획 생성
         insert_plan = text("""
-            INSERT INTO dbo.study_plan (user_id, title, subject, created_at)
-            VALUES (:user_id, :title, :subject, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, created_at)
+            VALUES (:user_id, :title, :subject, :image_url, SYSDATETIMEOFFSET())
         """)
-        db.session.execute(insert_plan, {"user_id": user_id, "title": title, "subject": subject})
+        db.session.execute(insert_plan, {
+            "user_id": user_id, 
+            "title": title, 
+            "subject": subject,
+            "image_url": data.get("image_url")
+        })
         db.session.commit()
         
         # 새 plan_id 가져오기
@@ -785,14 +794,16 @@ def update_plan(plan_id):
         update_query = text("""
             UPDATE dbo.study_plan
             SET title = :title,
-                subject = :subject
+                subject = :subject,
+                image_url = :image_url
             WHERE plan_id = :plan_id
         """)
         
         db.session.execute(update_query, {
             "plan_id": plan_id,
             "title": data.get("title"),
-            "subject": data.get("subject")
+            "subject": data.get("subject"),
+            "image_url": data.get("image_url")
         })
         db.session.commit()
         
@@ -1323,5 +1334,99 @@ def template_manage_page():
     if not active_plan_id and plans:
         active_plan_id = plans[0]["plan_id"]
     return render_template("template_manage.html", plans=plans, active_plan_id=active_plan_id)
+
+# 오늘의 학습 페이지
+@app.route("/today")
+@login_required
+def today_learning():
+    """오늘 계획된 학습 작업을 크게 보여주는 페이지"""
+    today = date.today()
+    today_str = today.strftime("%Y-%m-%d")
+    user_id = session.get('user_id', 1)
+    
+    # 오늘 날짜의 모든 학습 작업 조회
+    query = text("""
+        SELECT 
+            p.plan_id,
+            p.title as plan_title,
+            p.subject,
+            p.image_url,
+            t.task_id,
+            t.task_title,
+            t.link_url,
+            t.order_no,
+            ISNULL(
+                (SELECT TOP 1 status 
+                 FROM dbo.study_plan_log 
+                 WHERE task_id = t.task_id 
+                 ORDER BY updated_at DESC), 
+                'planned'
+            ) as status,
+            ISNULL(
+                (SELECT TOP 1 actual_minutes 
+                 FROM dbo.study_plan_log 
+                 WHERE task_id = t.task_id 
+                 ORDER BY updated_at DESC), 
+                0
+            ) as minutes,
+            ISNULL(
+                (SELECT TOP 1 memo 
+                 FROM dbo.study_plan_log 
+                 WHERE task_id = t.task_id 
+                 ORDER BY updated_at DESC), 
+                ''
+            ) as memo
+        FROM dbo.study_plan_task t
+        JOIN dbo.study_plan p ON t.plan_id = p.plan_id
+        WHERE t.plan_date = :today
+          AND p.user_id = :user_id
+        ORDER BY t.order_no, p.plan_id
+    """)
+    
+    result = db.session.execute(query, {"today": today_str, "user_id": user_id}).fetchall()
+    
+    # 계획별로 그룹화
+    plans_dict = {}
+    for row in result:
+        plan_id = row.plan_id
+        if plan_id not in plans_dict:
+            # 색상 할당
+            color_idx = (plan_id - 1) % len(PLAN_COLORS)
+            plans_dict[plan_id] = {
+                "plan_id": plan_id,
+                "plan_title": row.plan_title,
+                "subject": row.subject,
+                "image_url": row.image_url if hasattr(row, 'image_url') else None,
+                "color": PLAN_COLORS[color_idx],
+                "tasks": []
+            }
+        
+        plans_dict[plan_id]["tasks"].append({
+            "task_id": row.task_id,
+            "task_title": row.task_title,
+            "link_url": row.link_url,
+            "order_no": row.order_no,
+            "status": row.status,
+            "minutes": row.minutes,
+            "memo": row.memo
+        })
+    
+    today_plans = list(plans_dict.values())
+    
+    # 통계 계산
+    total_tasks = len(result)
+    completed_tasks = sum(1 for r in result if r.status == 'done')
+    completion_rate = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
+    
+    return render_template(
+        "today_learning.html",
+        today=today,
+        today_str=today_str,
+        plans=today_plans,
+        total_tasks=total_tasks,
+        completed_tasks=completed_tasks,
+        completion_rate=completion_rate
+    )
+
 if __name__ == "__main__":
     app.run(debug=True)

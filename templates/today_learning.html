@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ session.user_name }}님의 학습 - 자기주도 학습 캘린더</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .task-card {
+      transition: all 0.3s ease;
+      height: 100%;
+      position: relative;
+    }
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .completed {
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
+    .completion-stamp {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      width: 80px;
+      height: 80px;
+      opacity: 0;
+      transform: scale(0) rotate(-15deg);
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      pointer-events: none;
+      z-index: 10;
+    }
+    .task-card.completed .completion-stamp {
+      opacity: 0.9;
+      transform: scale(1) rotate(-5deg);
+    }
+    .completion-stamp img {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    .page-container {
+      display: none;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+    .page-container.active {
+      display: grid;
+    }
+    .arrow-btn {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 50;
+      background: rgba(59, 130, 246, 0.9);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .arrow-btn:hover {
+      background: rgba(37, 99, 235, 1);
+      transform: translateY(-50%) scale(1.1);
+    }
+    .arrow-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      background: rgba(156, 163, 175, 0.5);
+    }
+    .arrow-btn:disabled:hover {
+      transform: translateY(-50%);
+    }
+    .arrow-left {
+      left: 20px;
+    }
+    .arrow-right {
+      right: 20px;
+    }
+    .page-indicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      font-weight: 600;
+      z-index: 50;
+    }
+    .completion-badge {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      width: 120px;
+      height: 120px;
+      opacity: 0;
+      transform: scale(0) rotate(-15deg);
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 60;
+      pointer-events: none;
+    }
+    .completion-badge.show {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+    .completion-badge img {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+  <div class="max-w-7xl mx-auto p-8">
+    <!-- 헤더 -->
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">📖 {{ session.user_name }}님의 학습</h1>
+        <p class="text-xl text-gray-600">{{ today.strftime('%Y년 %m월 %d일') }} ({{ ['월', '화', '수', '목', '금', '토', '일'][today.weekday()] }}요일)</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="{{ url_for('index') }}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors">
+          ← 캘린더로 돌아가기
+        </a>
+      </div>
+    </div>
+
+    <!-- 진행률 표시 -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">학습 진행률</h2>
+        <div class="text-3xl font-bold text-blue-600">{{ completion_rate }}%</div>
+      </div>
+      <div class="relative w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+        <div class="absolute h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500 flex items-center justify-center" style="width: {{ completion_rate }}%;">
+          <span class="text-sm font-bold text-white">{{ completed_tasks }} / {{ total_tasks }} 완료</span>
+        </div>
+      </div>
+    </div>
+
+    {% if plans %}
+      <!-- 화살표 버튼 -->
+      <button id="prevBtn" class="arrow-btn arrow-left" onclick="prevPage()">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path>
+        </svg>
+      </button>
+      <button id="nextBtn" class="arrow-btn arrow-right" onclick="nextPage()">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </button>
+
+      <!-- 페이지 인디케이터 -->
+      <div id="pageIndicator" class="page-indicator">
+        <span id="currentPageNum">1</span> / <span id="totalPageNum">1</span>
+      </div>
+
+      <!-- 완료 배지 -->
+      <div id="completionBadge" class="completion-badge">
+        <img src="{{ url_for('static', filename='images/completion_stamp.png') }}" alt="잘했어요!">
+      </div>
+
+      <!-- 계획별 학습 작업 (페이지별 계획 2개씩) -->
+      <div id="pagesContainer">
+        {% set plans_per_page = 2 %}
+        {% set total_pages = (plans|length + plans_per_page - 1) // plans_per_page %}
+        
+        {% for page_num in range(total_pages) %}
+        {% set start_idx = page_num * plans_per_page %}
+        {% set end_idx = start_idx + plans_per_page %}
+        {% set page_plans = plans[start_idx:end_idx] %}
+        
+        <div class="page-container {% if page_num == 0 %}active{% endif %}" data-page="{{ page_num }}">
+          {% for plan in page_plans %}
+          <div class="bg-white rounded-2xl shadow-lg overflow-hidden h-fit" style="border-left: 8px solid {{ plan.color }};">
+            <!-- 이미지 영역 -->
+            {% if plan.image_url %}
+            <div class="relative overflow-hidden">
+              <img src="{{ plan.image_url }}" alt="{{ plan.plan_title }}" 
+                   class="w-full h-auto object-contain"
+                   onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="hidden absolute inset-0 items-center justify-center text-gray-400" style="background: linear-gradient(135deg, {{ plan.color }}40 0%, {{ plan.color }}20 100%);">
+                <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+            </div>
+            {% endif %}
+            
+            <div class="px-6 py-4" style="background: linear-gradient(135deg, {{ plan.color }}20 0%, white 100%);">
+              <div>
+                <h2 class="text-2xl font-bold text-gray-800">{{ plan.plan_title }}</h2>
+                <p class="text-gray-600">과목: {{ plan.subject }}</p>
+              </div>
+            </div>
+
+            <div class="p-6">
+              <div class="space-y-4">
+                {% for task in plan.tasks %}
+                <div class="task-card bg-gray-50 rounded-xl p-5 border-2 border-gray-200 {% if task.status == 'done' %}completed{% endif %}" data-task-id="{{ task.task_id }}">
+                  <div class="flex items-start gap-3">
+                    <input type="checkbox" 
+                           class="task-checkbox w-5 h-5 mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0" 
+                           data-task-id="{{ task.task_id }}"
+                           {% if task.status == 'done' %}checked{% endif %}>
+                    <div class="flex-grow">
+                      <h3 class="text-lg font-bold text-gray-800 leading-tight mb-2">{{ task.task_title }}</h3>
+                      
+                      {% if task.link_url %}
+                      <a href="{{ task.link_url }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        🔗 학습 자료
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                      </a>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <!-- 완료 도장 -->
+                  <div class="completion-stamp">
+                    <img src="{{ url_for('static', filename='images/completion_stamp.png') }}" alt="완료!">
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <!-- 계획이 없을 때 -->
+      <div class="bg-white rounded-2xl shadow-lg p-12 text-center">
+        <div class="text-6xl mb-4">📅</div>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">오늘 계획된 학습이 없습니다</h2>
+        <p class="text-gray-600 mb-6">캘린더에서 새로운 학습 계획을 추가해보세요!</p>
+        <a href="{{ url_for('index') }}" class="inline-block bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+          캘린더로 이동
+        </a>
+      </div>
+    {% endif %}
+
+    <!-- 하단 요약 -->
+    <div class="mt-8 bg-white rounded-2xl shadow-lg p-6">
+      <div class="grid grid-cols-3 gap-6 text-center">
+        <div>
+          <div class="text-3xl font-bold text-blue-600">{{ total_tasks }}</div>
+          <div class="text-sm text-gray-600">전체 작업</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-green-600">{{ completed_tasks }}</div>
+          <div class="text-sm text-gray-600">완료된 작업</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-orange-600">{{ total_tasks - completed_tasks }}</div>
+          <div class="text-sm text-gray-600">남은 작업</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentPage = 0;
+    let totalPages = 0;
+
+    // 페이지 초기화
+    function initPages() {
+      const pages = document.querySelectorAll('.page-container');
+      totalPages = pages.length;
+      document.getElementById('totalPageNum').textContent = totalPages;
+      updatePageDisplay();
+    }
+
+    // 페이지 표시 업데이트
+    function updatePageDisplay() {
+      const pages = document.querySelectorAll('.page-container');
+      pages.forEach((page, index) => {
+        page.classList.toggle('active', index === currentPage);
+      });
+      
+      document.getElementById('currentPageNum').textContent = currentPage + 1;
+      document.getElementById('prevBtn').disabled = currentPage === 0;
+      document.getElementById('nextBtn').disabled = currentPage === totalPages - 1;
+    }
+
+    // 이전 페이지
+    function prevPage() {
+      if (currentPage > 0) {
+        currentPage--;
+        updatePageDisplay();
+      }
+    }
+
+    // 다음 페이지
+    function nextPage() {
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        updatePageDisplay();
+      }
+    }
+
+    // 키보드 단축키
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        prevPage();
+      } else if (e.key === 'ArrowRight') {
+        nextPage();
+      }
+    });
+
+    // 체크박스 클릭 이벤트
+    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', async function() {
+        const taskId = this.dataset.taskId;
+        const isChecked = this.checked;
+        const taskCard = this.closest('.task-card');
+        const badge = document.getElementById('completionBadge');
+        
+        try {
+          const response = await fetch(`/day/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              task_id: taskId,
+              completed: isChecked
+            })
+          });
+          
+          if (response.ok) {
+            // 완료 상태 시각적 반영
+            if (isChecked) {
+              taskCard.classList.add('completed');
+              // 완료 배지 표시
+              badge.classList.add('show');
+              setTimeout(() => {
+                badge.classList.remove('show');
+              }, 2000);
+            } else {
+              taskCard.classList.remove('completed');
+            }
+            
+            // 페이지 새로고침으로 진행률 업데이트
+            setTimeout(() => {
+              location.reload();
+            }, 300);
+          } else {
+            alert('상태 업데이트에 실패했습니다.');
+            this.checked = !isChecked;
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('오류가 발생했습니다.');
+          this.checked = !isChecked;
+        }
+      });
+    });
+
+    // 링크 카드 클릭 시 애니메이션
+    document.querySelectorAll('.task-card a').forEach(link => {
+      link.addEventListener('click', function(e) {
+        const card = this.closest('.task-card');
+        card.style.transform = 'scale(0.98)';
+        setTimeout(() => {
+          card.style.transform = '';
+        }, 200);
+      });
+    });
+
+    // 페이지 로드 시 초기화
+    initPages();
+  </script>
+</body>
+</html>
+  </script>
+</body>
+</html>
