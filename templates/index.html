@@ -771,7 +771,7 @@
             // 링크가 있으면 표시
             if (task.link_url) {
               const normalizedLink = /^(https?:\/\/)/i.test(task.link_url) ? task.link_url : `https://${task.link_url}`;
-              taskHtml += `<div class="text-xs text-blue-600 mt-1"><a href="javascript:void(0)" onclick="window.open('${normalizedLink}', '_blank', 'noopener')" class="hover:underline">🔗 ${task.link_url}</a></div>`;
+              taskHtml += `<div class="text-xs text-blue-600 mt-1"><a href="javascript:void(0)" onclick="window.open('${normalizedLink}', '_blank', 'noopener')" class="hover:underline">🔗 링크 열기</a></div>`;
             }
             
             taskHtml += `

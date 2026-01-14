@@ -53,6 +53,7 @@ def get_plans_from_db():
             p.title,
             p.subject,
             p.image_url,
+            p.color,
             p.created_at,
             t.task_id,
             t.plan_date,
@@ -81,15 +82,19 @@ def get_plans_from_db():
         
         # 새로운 계획인 경우
         if plan_id not in plans_dict:
-            # 색상 할당 (plan_id 기반으로 순환)
-            color_idx = (plan_id - 1) % len(PLAN_COLORS)
+            # DB에서 색상 가져오기, 없으면 plan_id 기반으로 기본 색상 할당
+            saved_color = row.color if hasattr(row, 'color') and row.color else None
+            if not saved_color:
+                color_idx = (plan_id - 1) % len(PLAN_COLORS)
+                saved_color = PLAN_COLORS[color_idx]
+            
             plans_dict[plan_id] = {
                 "plan_id": plan_id,
                 "title": row.title,
                 "subject": row.subject,
                 "image_url": row.image_url if hasattr(row, 'image_url') else None,
                 "created_at": row.created_at.strftime("%Y-%m-%d") if row.created_at else "",
-                "color": PLAN_COLORS[color_idx],
+                "color": saved_color,
                 "daily_plans": []
             }
         
@@ -500,17 +505,25 @@ def create_plan():
         end_date_str = data.get("end_date")
         selected_weekdays = data.get("selected_weekdays", [])
         
-        # 1. DB에 새 계획 추가
+        # 1. DB에 새 계획 추가 (색상 포함)
+        color = data.get("color")
+        if not color:
+            # 색상이 지정되지 않으면 기본값 사용
+            plans = get_plans_from_db()
+            color_idx = len(plans) % len(PLAN_COLORS)
+            color = PLAN_COLORS[color_idx]
+        
         insert_query = text("""
-            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, created_at)
-            VALUES (:user_id, :title, :subject, :image_url, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, color, created_at)
+            VALUES (:user_id, :title, :subject, :image_url, :color, SYSDATETIMEOFFSET())
         """)
         
         db.session.execute(insert_query, {
             "user_id": user_id,
             "title": title,
             "subject": subject,
-            "image_url": image_url
+            "image_url": image_url,
+            "color": color
         })
         db.session.commit()
         
@@ -601,16 +614,24 @@ def create_plan_from_template():
         if not allowed_weekdays:
             return jsonify({"ok": False, "error": "유효한 요일이 없습니다."}), 400
         
-        # 1. 새 계획 생성
+        # 1. 새 계획 생성 (색상 포함)
+        color = data.get("color")
+        if not color:
+            # 색상이 지정되지 않으면 기본값 사용
+            plans = get_plans_from_db()
+            color_idx = len(plans) % len(PLAN_COLORS)
+            color = PLAN_COLORS[color_idx]
+        
         insert_plan = text("""
-            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, created_at)
-            VALUES (:user_id, :title, :subject, :image_url, SYSDATETIMEOFFSET())
+            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, color, created_at)
+            VALUES (:user_id, :title, :subject, :image_url, :color, SYSDATETIMEOFFSET())
         """)
         db.session.execute(insert_plan, {
             "user_id": user_id, 
             "title": title, 
             "subject": subject,
-            "image_url": data.get("image_url")
+            "image_url": data.get("image_url"),
+            "color": color
         })
         db.session.commit()
         
@@ -790,12 +811,13 @@ def update_plan(plan_id):
     data = request.get_json(force=True)
     
     try:
-        # DB에서 계획 업데이트
+        # DB에서 계획 업데이트 (색상 포함)
         update_query = text("""
             UPDATE dbo.study_plan
             SET title = :title,
                 subject = :subject,
-                image_url = :image_url
+                image_url = :image_url,
+                color = :color
             WHERE plan_id = :plan_id
         """)
         
@@ -803,7 +825,8 @@ def update_plan(plan_id):
             "plan_id": plan_id,
             "title": data.get("title"),
             "subject": data.get("subject"),
-            "image_url": data.get("image_url")
+            "image_url": data.get("image_url"),
+            "color": data.get("color")
         })
         db.session.commit()
         
@@ -1351,6 +1374,7 @@ def today_learning():
             p.title as plan_title,
             p.subject,
             p.image_url,
+            p.color,
             t.task_id,
             t.task_title,
             t.link_url,
@@ -1390,14 +1414,18 @@ def today_learning():
     for row in result:
         plan_id = row.plan_id
         if plan_id not in plans_dict:
-            # 색상 할당
-            color_idx = (plan_id - 1) % len(PLAN_COLORS)
+            # DB에서 색상 가져오기, 없으면 plan_id 기반으로 기본 색상 할당
+            saved_color = row.color if hasattr(row, 'color') and row.color else None
+            if not saved_color:
+                color_idx = (plan_id - 1) % len(PLAN_COLORS)
+                saved_color = PLAN_COLORS[color_idx]
+            
             plans_dict[plan_id] = {
                 "plan_id": plan_id,
                 "plan_title": row.plan_title,
                 "subject": row.subject,
                 "image_url": row.image_url if hasattr(row, 'image_url') else None,
-                "color": PLAN_COLORS[color_idx],
+                "color": saved_color,
                 "tasks": []
             }
         

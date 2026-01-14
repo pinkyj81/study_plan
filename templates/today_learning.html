@@ -7,12 +7,19 @@
   <style>
     .task-card {
       transition: all 0.3s ease;
-      height: 100%;
+      min-height: 120px;
       position: relative;
+      display: flex;
+      align-items: center;
     }
     .task-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .task-link-area {
+      min-height: 24px;
+      display: flex;
+      align-items: center;
     }
     .completed {
       opacity: 0.6;
@@ -184,9 +191,9 @@
           <div class="bg-white rounded-2xl shadow-lg overflow-hidden h-fit" style="border-left: 8px solid {{ plan.color }};">
             <!-- 이미지 영역 -->
             {% if plan.image_url %}
-            <div class="relative overflow-hidden">
+            <div class="relative overflow-hidden" style="height: 280px; background-color: #f9fafb;">
               <img src="{{ plan.image_url }}" alt="{{ plan.plan_title }}" 
-                   class="w-full h-auto object-contain"
+                   class="w-full h-full object-contain"
                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
               <div class="hidden absolute inset-0 items-center justify-center text-gray-400" style="background: linear-gradient(135deg, {{ plan.color }}40 0%, {{ plan.color }}20 100%);">
                 <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
@@ -207,22 +214,24 @@
               <div class="space-y-4">
                 {% for task in plan.tasks %}
                 <div class="task-card bg-gray-50 rounded-xl p-5 border-2 border-gray-200 {% if task.status == 'done' %}completed{% endif %}" data-task-id="{{ task.task_id }}">
-                  <div class="flex items-start gap-3">
+                  <div class="flex items-center gap-3 w-full">
                     <input type="checkbox" 
-                           class="task-checkbox w-5 h-5 mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0" 
+                           class="task-checkbox w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer flex-shrink-0" 
                            data-task-id="{{ task.task_id }}"
                            {% if task.status == 'done' %}checked{% endif %}>
                     <div class="flex-grow">
                       <h3 class="text-lg font-bold text-gray-800 leading-tight mb-2">{{ task.task_title }}</h3>
                       
-                      {% if task.link_url %}
-                      <a href="{{ task.link_url }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
-                        🔗 학습 자료
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-                        </svg>
-                      </a>
-                      {% endif %}
+                      <div class="task-link-area">
+                        {% if task.link_url %}
+                        <a href="{{ task.link_url }}" target="_blank" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                          🔗 학습 자료
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                          </svg>
+                        </a>
+                        {% endif %}
+                      </div>
                     </div>
                   </div>
                   <!-- 완료 도장 -->
@@ -249,24 +258,6 @@
         </a>
       </div>
     {% endif %}
-
-    <!-- 하단 요약 -->
-    <div class="mt-8 bg-white rounded-2xl shadow-lg p-6">
-      <div class="grid grid-cols-3 gap-6 text-center">
-        <div>
-          <div class="text-3xl font-bold text-blue-600">{{ total_tasks }}</div>
-          <div class="text-sm text-gray-600">전체 작업</div>
-        </div>
-        <div>
-          <div class="text-3xl font-bold text-green-600">{{ completed_tasks }}</div>
-          <div class="text-sm text-gray-600">완료된 작업</div>
-        </div>
-        <div>
-          <div class="text-3xl font-bold text-orange-600">{{ total_tasks - completed_tasks }}</div>
-          <div class="text-sm text-gray-600">남은 작업</div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
