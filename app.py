@@ -8,10 +8,18 @@ from functools import wraps
 from io import TextIOWrapper
 import csv
 import re
+import pytz
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'  # 세션용 비밀키
 init_db(app)
+
+# 한국 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
+
+def get_today_kst():
+    """한국 시간대 기준 오늘 날짜 반환"""
+    return datetime.now(KST).date()
 
 # 파스텔 색상 팔레트
 PLAN_COLORS = [
@@ -112,7 +120,7 @@ def get_plans_from_db():
 
 def generate_fake_calendar(year, plan_id=None):
     data = {}
-    today = datetime.now().date()
+    today = get_today_kst()
     
     # 세션에서 user_id 가져오기
     user_id = session.get('user_id', 1)
@@ -293,7 +301,7 @@ def index(year=2026):
         calendar_data=calendar_data,
         summary=summary,
         stats=stats,
-        today_date=date.today()
+        today_date=get_today_kst()
     )
 
 @app.route("/manage_plan")
@@ -1363,7 +1371,7 @@ def template_manage_page():
 @login_required
 def today_learning():
     """오늘 계획된 학습 작업을 크게 보여주는 페이지"""
-    today = date.today()
+    today = get_today_kst()
     today_str = today.strftime("%Y-%m-%d")
     user_id = session.get('user_id', 1)
     
