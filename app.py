@@ -9,6 +9,8 @@ from io import TextIOWrapper
 import csv
 import re
 import pytz
+import requests
+from urllib.parse import urljoin
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'  # 세션용 비밀키
@@ -118,6 +120,31 @@ def get_plans_from_db():
     
     return list(plans_dict.values())
 
+
+def is_plan_completed(plan):
+    daily_plans = plan.get("daily_plans", [])
+    if not daily_plans:
+        return False
+    if all(dp.get("status") == "done" for dp in daily_plans):
+        return True
+
+    latest_plan_date = None
+    for daily_plan in daily_plans:
+        raw_date = daily_plan.get("date")
+        if not raw_date:
+            continue
+        try:
+            parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if latest_plan_date is None or parsed_date > latest_plan_date:
+            latest_plan_date = parsed_date
+
+    if latest_plan_date and latest_plan_date < get_today_kst():
+        return True
+
+    return False
+
 def generate_fake_calendar(year, plan_id=None):
     data = {}
     today = get_today_kst()
@@ -172,16 +199,33 @@ def generate_fake_calendar(year, plan_id=None):
                 plan_id_val = None
                 is_multiple = False
                 all_done = False
+                total_count = 0
+                done_count = 0
+                completion_ratio = 0.0
+                heat_level = 0
                 if date_str in daily_plan_map:
                     status = daily_plan_map[date_str]["status"]
                     color = daily_plan_map[date_str]["color"]
                     plan_id_val = daily_plan_map[date_str]["plan_id"]
                     is_multiple = daily_plan_map[date_str].get("multiple", False)
+                    total_count = daily_plan_map[date_str].get("total_count", 0)
+                    done_count = daily_plan_map[date_str].get("done_count", 0)
+                    completion_ratio = (done_count / total_count) if total_count else 0.0
+
+                    # 히트맵 강도(0~4): 계획량 + 완료율을 함께 반영
+                    if total_count > 0:
+                        heat_level = 1
+                        if completion_ratio >= 1:
+                            heat_level += 2
+                        elif completion_ratio >= 0.5:
+                            heat_level += 1
+                        if total_count >= 3:
+                            heat_level += 1
+                        heat_level = min(4, heat_level)
+
                     # 여러 계획이 있는 경우, 모두 완료되었는지 확인
                     if is_multiple:
-                        total = daily_plan_map[date_str].get("total_count", 0)
-                        done = daily_plan_map[date_str].get("done_count", 0)
-                        all_done = (total > 0 and total == done)
+                        all_done = (total_count > 0 and total_count == done_count)
                 elif d < today:
                     status = "none"  # 계획 없음 (과거)
                 else:
@@ -198,7 +242,11 @@ def generate_fake_calendar(year, plan_id=None):
                     "color": color,
                     "plan_id": plan_id_val,
                     "multiple": is_multiple,
-                    "all_done": all_done
+                    "all_done": all_done,
+                    "total_count": total_count,
+                    "done_count": done_count,
+                    "completion_ratio": completion_ratio,
+                    "heat_level": heat_level
                 })
         data[m] = month_list
     return data
@@ -260,11 +308,14 @@ def logout():
 def index(year=2026):
     # DB에서 학습계획 가져오기
     plans = get_plans_from_db()
+    show_completed = request.args.get('show_completed') == '1'
+    visible_plans = plans if show_completed else [plan for plan in plans if not is_plan_completed(plan)]
+    hidden_completed_count = len(plans) - len(visible_plans)
     # 선택된 계획 필터 (쿼리 파라미터)
     active_plan_id = request.args.get('plan_id', type=int)
     active_plan = None
     if active_plan_id:
-        active_plan = next((p for p in plans if p.get('plan_id') == active_plan_id), None)
+        active_plan = next((p for p in visible_plans if p.get('plan_id') == active_plan_id), None)
     
     # 년도별 달력 데이터 생성 (선택된 계획 기준으로 색상 상태 반영)
     calendar_data = generate_fake_calendar(year, plan_id=active_plan_id)
@@ -279,7 +330,7 @@ def index(year=2026):
     }
     
     # 통계 계산 (선택된 계획이 있으면 해당 계획 기준)
-    base_list = [active_plan] if active_plan else plans
+    base_list = [active_plan] if active_plan else visible_plans
     total_plans = len(base_list)
     total_assigned = sum(len(p["daily_plans"]) for p in base_list)
     completed = sum(1 for p in base_list for dp in p["daily_plans"] if dp.get("status") == "done")
@@ -296,12 +347,14 @@ def index(year=2026):
         "index.html",
         year=year,
         available_years=[2025, 2026, 2027],
-        plans=plans,
-        active_plan=active_plan or (plans[0] if plans else None),
+        plans=visible_plans,
+        active_plan=active_plan or (visible_plans[0] if visible_plans else None),
         calendar_data=calendar_data,
         summary=summary,
         stats=stats,
-        today_date=get_today_kst()
+        today_date=get_today_kst(),
+        hidden_completed_count=hidden_completed_count,
+        show_completed=show_completed
     )
 
 @app.route("/manage_plan")
@@ -769,6 +822,150 @@ def save_daily_plans(plan_id):
             "error": str(e)
         }), 500
 
+
+@app.route("/plan/parse_from_url", methods=["POST"])
+def parse_rows_from_url():
+    """외부 강의 목록 URL 파싱 미리보기"""
+    data = request.get_json(force=True)
+    source_url = (data.get("source_url") or "").strip()
+
+    if not source_url:
+        return jsonify({"ok": False, "error": "강의 목록 URL을 입력하세요."}), 400
+
+    try:
+        rows = _parse_lecture_rows_from_url(source_url)
+        return jsonify({
+            "ok": True,
+            "count": len(rows),
+            "rows": rows
+        })
+    except requests.RequestException as exc:
+        return jsonify({"ok": False, "error": f"URL 요청 실패: {exc}"}), 400
+    except (ValueError, RuntimeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@app.route("/plan/create_from_url", methods=["POST"])
+def create_plan_from_url():
+    """외부 강의 목록 URL(또는 미리보기 수정 rows)로 새 계획 생성"""
+    data = request.get_json(force=True)
+    user_id = session.get('user_id', 1)
+
+    try:
+        title = data.get("title")
+        subject = data.get("subject")
+        source_url = (data.get("source_url") or "").strip()
+        input_rows = data.get("rows") if isinstance(data.get("rows"), list) else None
+        start_date_str = data.get("start_date")
+        end_date_str = data.get("end_date")
+        selected_weekdays = data.get("selected_weekdays", [])
+
+        if not all([title, subject, start_date_str, end_date_str]):
+            return jsonify({"ok": False, "error": "필수 항목이 누락되었습니다."}), 400
+        if not source_url and not input_rows:
+            return jsonify({"ok": False, "error": "강의 목록 URL 또는 파싱 항목이 필요합니다."}), 400
+        if not selected_weekdays:
+            return jsonify({"ok": False, "error": "요일을 최소 1개 선택하세요."}), 400
+
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+        if start_date > end_date:
+            return jsonify({"ok": False, "error": "시작일이 종료일보다 늦습니다."}), 400
+
+        weekday_map = {
+            "mon": 0,
+            "tue": 1,
+            "wed": 2,
+            "thu": 3,
+            "fri": 4,
+            "sat": 5,
+            "sun": 6,
+        }
+        allowed_weekdays = {weekday_map[w] for w in selected_weekdays if w in weekday_map}
+        if not allowed_weekdays:
+            return jsonify({"ok": False, "error": "유효한 요일이 없습니다."}), 400
+
+        if input_rows:
+            parsed_rows = _normalize_rows_payload(input_rows, fallback_url=source_url or None)
+            if not parsed_rows:
+                return jsonify({"ok": False, "error": "생성할 파싱 항목이 없습니다."}), 400
+        else:
+            try:
+                parsed_rows = _parse_lecture_rows_from_url(source_url)
+            except requests.RequestException as exc:
+                return jsonify({"ok": False, "error": f"URL 요청 실패: {exc}"}), 400
+            except (ValueError, RuntimeError) as exc:
+                return jsonify({"ok": False, "error": str(exc)}), 400
+
+        # 새 계획 생성
+        color = data.get("color")
+        if not color:
+            plans = get_plans_from_db()
+            color_idx = len(plans) % len(PLAN_COLORS)
+            color = PLAN_COLORS[color_idx]
+
+        insert_plan = text("""
+            INSERT INTO dbo.study_plan (user_id, title, subject, image_url, color, created_at)
+            VALUES (:user_id, :title, :subject, :image_url, :color, SYSDATETIMEOFFSET())
+        """)
+        db.session.execute(insert_plan, {
+            "user_id": user_id,
+            "title": title,
+            "subject": subject,
+            "image_url": data.get("image_url"),
+            "color": color
+        })
+        db.session.commit()
+
+        id_query = text("SELECT MAX(plan_id) as new_id FROM dbo.study_plan")
+        new_plan_id = db.session.execute(id_query).fetchone().new_id
+
+        task_insert = text("""
+            INSERT INTO dbo.study_plan_task (plan_id, plan_date, task_title, order_no, link_url, created_at)
+            VALUES (:plan_id, :plan_date, :task_title, :order_no, :link_url, SYSDATETIMEOFFSET())
+        """)
+
+        current_date = start_date
+        idx = 0
+        created_count = 0
+        total_rows = len(parsed_rows)
+
+        while current_date <= end_date and idx < total_rows:
+            if current_date.weekday() in allowed_weekdays:
+                row = parsed_rows[idx]
+                db.session.execute(task_insert, {
+                    "plan_id": new_plan_id,
+                    "plan_date": current_date,
+                    "task_title": row["title"],
+                    "order_no": idx + 1,
+                    "link_url": row.get("link_url")
+                })
+                idx += 1
+                created_count += 1
+            current_date = current_date + timedelta(days=1)
+
+        db.session.commit()
+
+        message = f"'{title}' 계획이 URL 기반으로 생성되었습니다!"
+        if created_count < total_rows:
+            message += f" (파싱 {total_rows}개 중 {created_count}개만 배치됨)"
+
+        return jsonify({
+            "ok": True,
+            "message": message,
+            "plan_id": new_plan_id,
+            "count": created_count,
+            "parsed_count": total_rows
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        }), 500
+
 @app.route("/plan/<int:plan_id>/daily", methods=["GET"])
 def get_daily_plans(plan_id):
     try:
@@ -1136,6 +1333,165 @@ def _parse_csv_file(file_stream):
         if title:
             rows.append({"order_no": i, "title": title, "link_url": link})
     return rows
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", (value or "")).strip()
+
+
+def _clean_lecture_title(raw: str) -> str:
+    txt = _normalize_text(raw)
+    txt = re.sub(r"\s+학습하기\s*$", "", txt)
+    txt = re.sub(r"\s+이어보기\s*$", "", txt)
+    txt = re.sub(r"\s+보기\s*$", "", txt)
+    txt = re.sub(r"\s+\d+\s*분\s*$", "", txt)
+    return _normalize_text(txt)
+
+
+def _extract_lecture_rows_from_html(html_text: str, source_url: str, max_items: int = 300):
+    try:
+        from bs4 import BeautifulSoup  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError("beautifulsoup4 패키지가 필요합니다.") from exc
+
+    soup = BeautifulSoup(html_text, "html.parser")
+    raw_candidates = []
+
+    # EBS 전용: "강의 목록" 구간에서 강의 제목([n강] ...)만 추출
+    ebs_candidates = []
+    strict_lecture_pattern = re.compile(r"^\[\s*\d+\s*강\s*\]\s*.+")
+
+    text_lines = [_normalize_text(line) for line in soup.get_text("\n", strip=True).splitlines()]
+    in_lecture_section = False
+    for line in text_lines:
+        if re.search(r"강의\s*목록", line):
+            in_lecture_section = True
+            continue
+        if not in_lecture_section:
+            continue
+        if re.search(r"다음\s*강의|강좌\s*소개|공지사항|학습Q&A|수강후기|자료실", line):
+            break
+
+        cleaned_line = _clean_lecture_title(line)
+        if strict_lecture_pattern.search(cleaned_line):
+            ebs_candidates.append({"title": cleaned_line, "link_url": source_url})
+
+    # 보조: 섹션 내 앵커 텍스트에서도 강의 제목 패턴만 추출
+    lecture_heading = soup.find(string=re.compile(r"강의\s*목록"))
+    if lecture_heading:
+        for elem in lecture_heading.parent.next_elements:
+            if isinstance(elem, str):
+                if re.search(r"다음\s*강의", elem) or re.search(r"강좌\s*소개", elem):
+                    break
+                continue
+
+            tag_name = getattr(elem, "name", None)
+            if tag_name != "a":
+                continue
+
+            txt = _clean_lecture_title(elem.get_text(" ", strip=True))
+            if not txt or not strict_lecture_pattern.search(txt):
+                continue
+
+            href = (elem.get("href") or "").strip()
+            if href.lower().startswith("javascript:"):
+                href = ""
+
+            ebs_candidates.append({
+                "title": txt,
+                "link_url": urljoin(source_url, href) if href else source_url
+            })
+
+    # 1) 링크 기반 텍스트 우선 수집
+    for anchor in soup.select("a"):
+        text_value = _normalize_text(anchor.get_text(" ", strip=True))
+        if 6 <= len(text_value) <= 180:
+            raw_candidates.append(text_value)
+
+    # 2) 페이지 라인 텍스트도 보조 수집
+    for line in soup.get_text("\n", strip=True).splitlines():
+        text_value = _normalize_text(line)
+        if 6 <= len(text_value) <= 180:
+            raw_candidates.append(text_value)
+
+    lecture_pattern = re.compile(r"(\[\s*\d+\s*강\s*\]|^\d{1,3}\s*강\s*[-.:)]?\s+)")
+    exclude_words = {
+        "강좌 소개", "강의 목록", "교재", "게시판", "로그인", "회원가입", "고객센터",
+        "공지", "이벤트", "전체보기", "닫기", "이전", "다음"
+    }
+
+    results = []
+    seen = set()
+
+    for item in ebs_candidates:
+        cleaned = _clean_lecture_title(item["title"])
+        if not cleaned or cleaned in seen:
+            continue
+        if any(word == cleaned for word in exclude_words):
+            continue
+        if not lecture_pattern.search(cleaned):
+            continue
+
+        seen.add(cleaned)
+        results.append({"title": cleaned, "link_url": item.get("link_url") or source_url})
+        if len(results) >= max_items:
+            break
+
+    if results:
+        for idx, item in enumerate(results, start=1):
+            item["order_no"] = idx
+        return results
+
+    for cand in raw_candidates:
+        cleaned = _clean_lecture_title(cand)
+        if not cleaned:
+            continue
+        if cleaned in seen:
+            continue
+        if any(word == cleaned for word in exclude_words):
+            continue
+        if not lecture_pattern.search(cleaned):
+            continue
+
+        seen.add(cleaned)
+        results.append({"title": cleaned, "link_url": source_url})
+        if len(results) >= max_items:
+            break
+
+    for idx, item in enumerate(results, start=1):
+        item["order_no"] = idx
+    return results
+
+
+def _parse_lecture_rows_from_url(source_url: str):
+    if not re.match(r"^https?://", source_url or "", re.IGNORECASE):
+        raise ValueError("http/https 형식의 URL을 입력하세요.")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    response = requests.get(source_url, headers=headers, timeout=15)
+    response.raise_for_status()
+
+    rows = _extract_lecture_rows_from_html(response.text, source_url=source_url)
+    if not rows:
+        raise ValueError("URL에서 강의 목록을 찾지 못했습니다. 로그인 필요 페이지이거나 동적 로딩 페이지일 수 있습니다.")
+    return rows
+
+
+def _normalize_rows_payload(rows, fallback_url=None):
+    normalized = []
+    for idx, row in enumerate(rows or [], start=1):
+        title = _normalize_text((row or {}).get("title"))
+        link_url = _normalize_text((row or {}).get("link_url"))
+        if not title:
+            continue
+        normalized.append({
+            "order_no": idx,
+            "title": title,
+            "link_url": link_url or fallback_url,
+        })
+    return normalized
 
 
 @app.route("/plan/<int:plan_id>/templates/upload", methods=["POST"])
