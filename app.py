@@ -68,6 +68,7 @@ def get_plans_from_db():
             t.task_id,
             t.plan_date,
             t.task_title,
+            t.link_url,
             t.order_no,
             ISNULL(
                 (SELECT TOP 1 status 
@@ -115,6 +116,7 @@ def get_plans_from_db():
                 "date": row.plan_date.strftime("%Y-%m-%d"),
                 "order": row.order_no,
                 "description": row.task_title,
+                "link_url": row.link_url,
                 "status": row.status
             })
     
@@ -1357,9 +1359,9 @@ def _extract_lecture_rows_from_html(html_text: str, source_url: str, max_items: 
     soup = BeautifulSoup(html_text, "html.parser")
     raw_candidates = []
 
-    # EBS 전용: "강의 목록" 구간에서 강의 제목([n강] ...)만 추출
+    # EBS 전용: "강의 목록" 구간에서 강의 제목([n강], p9강, 10강 ...) 추출
     ebs_candidates = []
-    strict_lecture_pattern = re.compile(r"^\[\s*\d+\s*강\s*\]\s*.+")
+    strict_lecture_pattern = re.compile(r"^(?:\[\s*\d+\s*강\s*\]|[A-Za-z]?\s*\d+\s*강\s*[-.:)]?\s*).+")
 
     text_lines = [_normalize_text(line) for line in soup.get_text("\n", strip=True).splitlines()]
     in_lecture_section = False
@@ -1414,7 +1416,7 @@ def _extract_lecture_rows_from_html(html_text: str, source_url: str, max_items: 
         if 6 <= len(text_value) <= 180:
             raw_candidates.append(text_value)
 
-    lecture_pattern = re.compile(r"(\[\s*\d+\s*강\s*\]|^\d{1,3}\s*강\s*[-.:)]?\s+)")
+    lecture_pattern = re.compile(r"(\[\s*\d+\s*강\s*\]|^[A-Za-z]?\s*\d{1,3}\s*강\s*[-.:)]?\s*)")
     exclude_words = {
         "강좌 소개", "강의 목록", "교재", "게시판", "로그인", "회원가입", "고객센터",
         "공지", "이벤트", "전체보기", "닫기", "이전", "다음"
