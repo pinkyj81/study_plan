@@ -107,6 +107,8 @@
         <h2 class="text-lg font-semibold">학습 계획 선택</h2>
         <div class="flex gap-3">
           <a href="{{ url_for('today_learning') }}" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium">📖 오늘의 학습</a>
+          <button id="openLectureLinkModal" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium">강의 링크표</button>
+          <button id="openMonthlyProgressModal" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg text-sm font-medium">월간학습 진도표</button>
           <button id="openPlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">새 계획</button>
           <button id="openManagePlanModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">계획수정</button>
           <button id="openCreateTemplateModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">새 템플릿</button>
@@ -321,7 +323,10 @@
     <div class="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-lg relative">
       <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
         <h2 id="planDetailTitle" class="text-xl font-bold"></h2>
-        <button id="closePlanDetailModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+        <div class="flex items-center gap-2">
+          <button id="openEditPlanFromDetail" type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm font-medium">상세계획 수정</button>
+          <button id="closePlanDetailModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+        </div>
       </div>
       
       <!-- 프로그레스 바 -->
@@ -516,6 +521,63 @@
     </div>
   </div>
 
+  <!-- 강의 링크표 모달 (열=과목, 행=날짜) -->
+  <div id="lectureLinkModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden shadow-lg relative">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+        <div>
+          <h2 class="text-xl font-bold">강의 링크표</h2>
+          <p id="lectureLinkMeta" class="text-xs text-gray-500 mt-1">제목에 "강의"가 포함된 항목만 표시됩니다.</p>
+        </div>
+        <button id="closeLectureLinkModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+      <div id="lectureLinkGrid" class="p-6 overflow-auto max-h-[calc(90vh-80px)]"></div>
+    </div>
+  </div>
+
+  <!-- 월간학습 진도표 모달 (열=제목, 행=날짜) -->
+  <div id="monthlyProgressModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden shadow-lg relative">
+      <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+        <div>
+          <h2 class="text-xl font-bold">월간학습 진도표</h2>
+          <p id="monthlyProgressMeta" class="text-xs text-gray-500 mt-1">완료/미완료 상태를 제목별로 표시합니다.</p>
+        </div>
+        <button id="closeMonthlyProgressModal" class="text-gray-500 hover:text-gray-800 text-2xl">✕</button>
+      </div>
+      <div class="px-6 pt-4 pb-2 flex flex-wrap items-center gap-2 text-xs">
+        <span class="text-gray-600">기간:</span>
+        <select id="monthlyProgressMonth" class="border rounded px-2 py-1 text-xs">
+          <option value="01">01월</option>
+          <option value="02">02월</option>
+          <option value="03">03월</option>
+          <option value="04">04월</option>
+          <option value="05">05월</option>
+          <option value="06">06월</option>
+          <option value="07">07월</option>
+          <option value="08">08월</option>
+          <option value="09">09월</option>
+          <option value="10">10월</option>
+          <option value="11">11월</option>
+          <option value="12">12월</option>
+        </select>
+        <input id="monthlyProgressStart" type="date" class="border rounded px-2 py-1 text-xs" />
+        <span class="text-gray-500">~</span>
+        <input id="monthlyProgressEnd" type="date" class="border rounded px-2 py-1 text-xs" />
+        <button id="applyMonthlyProgressRange" type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded border border-slate-300">조회</button>
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-600">
+          <span class="inline-flex w-4 h-4 rounded border border-gray-400 bg-white"></span>
+          <span>미완료</span>
+        </span>
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-600">
+          <span class="inline-flex w-4 h-4 rounded border border-emerald-500 bg-emerald-500 text-white items-center justify-center text-[11px] leading-none">✓</span>
+          <span>완료</span>
+        </span>
+      </div>
+      <div id="monthlyProgressGrid" class="p-6 overflow-auto max-h-[calc(90vh-120px)]"></div>
+    </div>
+  </div>
+
   <!-- 새 템플릿 만들기 모달 -->
   <div id="createTemplateModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
     <div class="bg-white rounded-xl p-6 w-[800px] max-h-[90vh] overflow-y-auto shadow-lg relative">
@@ -625,6 +687,7 @@
     }{{ "," if not loop.last }}
     {% endfor %}
   };
+  const lectureGridPlans = {{ plans | tojson }};
   
   // 이전 버전에서 localStorage에 남은 색상 캐시 제거.
   // 이제 계획 색상은 DB 값을 단일 진실 원본으로 사용한다.
@@ -709,6 +772,20 @@
     const closeModalBtn = document.getElementById("closeModalBtn");
     const modalDate = document.getElementById("modalDate");
     const taskList = document.getElementById("taskList");
+    const openLectureLinkModalBtn = document.getElementById("openLectureLinkModal");
+    const lectureLinkModal = document.getElementById("lectureLinkModal");
+    const closeLectureLinkModalBtn = document.getElementById("closeLectureLinkModal");
+    const lectureLinkGrid = document.getElementById("lectureLinkGrid");
+    const lectureLinkMeta = document.getElementById("lectureLinkMeta");
+    const openMonthlyProgressModalBtn = document.getElementById("openMonthlyProgressModal");
+    const monthlyProgressModal = document.getElementById("monthlyProgressModal");
+    const closeMonthlyProgressModalBtn = document.getElementById("closeMonthlyProgressModal");
+    const monthlyProgressGrid = document.getElementById("monthlyProgressGrid");
+    const monthlyProgressMeta = document.getElementById("monthlyProgressMeta");
+    const monthlyProgressMonthSelect = document.getElementById("monthlyProgressMonth");
+    const monthlyProgressStartInput = document.getElementById("monthlyProgressStart");
+    const monthlyProgressEndInput = document.getElementById("monthlyProgressEnd");
+    const applyMonthlyProgressRangeBtn = document.getElementById("applyMonthlyProgressRange");
     
     // 새 템플릿 만들기 모달 요소
     const createTemplateModal = document.getElementById("createTemplateModal");
@@ -743,6 +820,281 @@
     const showCompletedPlans = document.getElementById('showCompletedPlans');
     const activePlanId = urlPlanId ? Number(urlPlanId) : null;
 
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function normalizeLinkUrl(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      return /^(https?:\/\/)/i.test(raw) ? raw : `https://${raw}`;
+    }
+
+    function formatDateLabel(dateText, weekdayLabels) {
+      const parsedDate = new Date(`${dateText}T00:00:00`);
+      if (Number.isNaN(parsedDate.getTime())) return dateText;
+      return `${parsedDate.getMonth() + 1}/${parsedDate.getDate()}(${weekdayLabels[parsedDate.getDay()]})`;
+    }
+
+    function normalizeDateInput(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return '';
+      return `${m[1]}-${m[2]}-${m[3]}`;
+    }
+
+    function setMonthDateInputs(monthValue) {
+      const monthNum = Number(monthValue || '0');
+      if (!monthNum || monthNum < 1 || monthNum > 12) return;
+      const mm = String(monthNum).padStart(2, '0');
+      const lastDay = new Date(currentYear, monthNum, 0).getDate();
+      if (monthlyProgressStartInput) monthlyProgressStartInput.value = `${currentYear}-${mm}-01`;
+      if (monthlyProgressEndInput) monthlyProgressEndInput.value = `${currentYear}-${mm}-${String(lastDay).padStart(2, '0')}`;
+    }
+
+    function getMonthlyProgressRangeFromInputs() {
+      const start = normalizeDateInput(monthlyProgressStartInput?.value);
+      const end = normalizeDateInput(monthlyProgressEndInput?.value);
+      if (!start || !end) {
+        return { error: '시작일/종료일을 입력해 주세요.' };
+      }
+      if (start > end) {
+        return { error: '시작일이 종료일보다 늦습니다.' };
+      }
+      return { start, end };
+    }
+
+    function buildLectureLinkGrid() {
+      const sourcePlans = Array.isArray(lectureGridPlans) ? lectureGridPlans : [];
+      const entries = [];
+      const lectureTitlePattern = /(?:\[\s*\d+\s*강\s*\]|[A-Za-z]?\s*\d+\s*강\s*[-.:)]?)/;
+      const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
+      sourcePlans.forEach((plan) => {
+        const planTitle = String(plan?.title || "").trim();
+        const isLecturePlan = planTitle.includes("강의");
+        const subject = String(plan?.subject || "미분류").trim() || "미분류";
+        const tasks = Array.isArray(plan?.daily_plans) ? plan.daily_plans : [];
+        tasks.forEach((task) => {
+          const dateText = String(task?.date || "").trim();
+          const titleText = String(task?.description || "").trim();
+          if (!dateText || !dateText.startsWith(`${currentYear}-`)) return;
+          if (!isLecturePlan && !titleText.includes("강의") && !lectureTitlePattern.test(titleText)) return;
+
+          entries.push({
+            date: dateText,
+            subject,
+            title: titleText,
+            linkUrl: normalizeLinkUrl(task?.link_url),
+            order: Number(task?.order || 0)
+          });
+        });
+      });
+
+      if (!entries.length) {
+        lectureLinkMeta.textContent = `${currentYear}년 기준 강의 항목이 없습니다.`;
+        lectureLinkGrid.innerHTML = '<div class="text-sm text-gray-500 text-center py-8">표시할 강의 링크가 없습니다.</div>';
+        return;
+      }
+
+      const subjects = Array.from(new Set(entries.map((v) => v.subject))).sort((a, b) => a.localeCompare(b, 'ko'));
+      const dates = Array.from(new Set(entries.map((v) => v.date))).sort((a, b) => a.localeCompare(b));
+      const grouped = new Map();
+
+      entries.forEach((entry) => {
+        const key = `${entry.date}||${entry.subject}`;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(entry);
+      });
+
+      grouped.forEach((list) => {
+        list.sort((a, b) => a.order - b.order);
+      });
+
+      lectureLinkMeta.textContent = `${currentYear}년 강의 항목 ${entries.length}개 · 날짜 ${dates.length}일 · 과목 ${subjects.length}개`;
+
+      const headHtml = subjects.map((subject) => `<th class="border px-3 py-2 min-w-[180px] bg-gray-50 text-left">${escapeHtml(subject)}</th>`).join('');
+      const bodyHtml = dates.map((dateText) => {
+        const dateLabel = formatDateLabel(dateText, weekdayLabels);
+        const cells = subjects.map((subject) => {
+          const key = `${dateText}||${subject}`;
+          const items = grouped.get(key) || [];
+          if (!items.length) {
+            return '<td class="border px-3 py-2 align-top text-xs text-gray-300">-</td>';
+          }
+
+          const itemsHtml = items.map((item) => {
+            const titleHtml = `<div class="text-xs text-gray-700 mb-1">${escapeHtml(item.title)}</div>`;
+            const linkHtml = item.linkUrl
+              ? `<a href="${escapeHtml(item.linkUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex text-xs text-blue-600 hover:text-blue-800 hover:underline">링크 열기</a>`
+              : '<span class="inline-flex text-xs text-gray-400">링크 없음</span>';
+            return `<div class="rounded border border-gray-200 bg-white px-2 py-2 mb-2 last:mb-0">${titleHtml}${linkHtml}</div>`;
+          }).join('');
+
+          return `<td class="border px-3 py-2 align-top bg-gray-50/40">${itemsHtml}</td>`;
+        }).join('');
+
+        return `<tr><th class="border px-3 py-2 bg-gray-50 text-left whitespace-nowrap">${escapeHtml(dateLabel)}</th>${cells}</tr>`;
+      }).join('');
+
+      lectureLinkGrid.innerHTML = `
+        <div class="overflow-auto border rounded-lg">
+          <table class="min-w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th class="border px-3 py-2 bg-gray-100 text-left sticky left-0 z-10">날짜</th>
+                ${headHtml}
+              </tr>
+            </thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function buildMonthlyProgressGrid(range = null) {
+      const sourcePlans = Array.isArray(lectureGridPlans) ? lectureGridPlans : [];
+      const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+      const entries = [];
+
+      sourcePlans.forEach((plan) => {
+        const title = String(plan?.title || '제목없음').trim() || '제목없음';
+        const tasks = Array.isArray(plan?.daily_plans) ? plan.daily_plans : [];
+        tasks.forEach((task) => {
+          const dateText = String(task?.date || '').trim();
+          if (!dateText || !dateText.startsWith(`${currentYear}-`)) return;
+          if (range && (dateText < range.start || dateText > range.end)) return;
+          entries.push({
+            date: dateText,
+            title,
+            status: String(task?.status || 'planned').trim().toLowerCase()
+          });
+        });
+      });
+
+      if (!entries.length) {
+        monthlyProgressMeta.textContent = `${currentYear}년 기준 표시할 학습 데이터가 없습니다.`;
+        monthlyProgressGrid.innerHTML = '<div class="text-sm text-gray-500 text-center py-8">표시할 진도 데이터가 없습니다.</div>';
+        return;
+      }
+
+      const titles = Array.from(new Set(entries.map((v) => v.title))).sort((a, b) => a.localeCompare(b, 'ko'));
+      const dates = Array.from(new Set(entries.map((v) => v.date))).sort((a, b) => a.localeCompare(b));
+      const grouped = new Map();
+
+      entries.forEach((entry) => {
+        const key = `${entry.date}||${entry.title}`;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(entry.status);
+      });
+
+      function summarizeStatus(statusList) {
+        const total = statusList.length;
+        const doneCount = statusList.filter((s) => s === 'done').length;
+        if (doneCount === total) {
+          return { isDone: true };
+        }
+        return { isDone: false };
+      }
+
+      const rangeLabel = range ? ` · 기간 ${formatDateLabel(range.start, weekdayLabels)}~${formatDateLabel(range.end, weekdayLabels)}` : '';
+      monthlyProgressMeta.textContent = `${currentYear}년 날짜 ${dates.length}일 · 제목 ${titles.length}개${rangeLabel}`;
+
+      const headHtml = titles.map((title) => `<th class="border px-3 py-2 min-w-[160px] bg-gray-50 text-left">${escapeHtml(title)}</th>`).join('');
+      const bodyHtml = dates.map((dateText) => {
+        const dateLabel = formatDateLabel(dateText, weekdayLabels);
+        const cells = titles.map((title) => {
+          const key = `${dateText}||${title}`;
+          const statusList = grouped.get(key) || [];
+          if (!statusList.length) {
+            return '<td class="border px-3 py-2 text-xs text-gray-300 text-center">-</td>';
+          }
+
+          const summary = summarizeStatus(statusList);
+          const checkboxHtml = summary.isDone
+            ? '<span class="inline-flex w-5 h-5 rounded border border-emerald-500 bg-emerald-500 text-white items-center justify-center text-xs leading-none">✓</span>'
+            : '<span class="inline-flex w-5 h-5 rounded border border-gray-400 bg-white"></span>';
+          return `<td class="border px-3 py-2 text-center bg-gray-50/40">${checkboxHtml}</td>`;
+        }).join('');
+
+        return `<tr><th class="border px-3 py-2 bg-gray-50 text-left whitespace-nowrap">${escapeHtml(dateLabel)}</th>${cells}</tr>`;
+      }).join('');
+
+      monthlyProgressGrid.innerHTML = `
+        <div class="overflow-auto border rounded-lg">
+          <table class="min-w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th class="border px-3 py-2 bg-gray-100 text-left sticky left-0 z-10">날짜</th>
+                ${headHtml}
+              </tr>
+            </thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    openLectureLinkModalBtn?.addEventListener("click", () => {
+      buildLectureLinkGrid();
+      lectureLinkModal?.classList.remove("hidden");
+    });
+
+    closeLectureLinkModalBtn?.addEventListener("click", () => {
+      lectureLinkModal?.classList.add("hidden");
+    });
+
+    lectureLinkModal?.addEventListener("click", (e) => {
+      if (e.target === lectureLinkModal) {
+        lectureLinkModal.classList.add("hidden");
+      }
+    });
+
+    openMonthlyProgressModalBtn?.addEventListener("click", () => {
+      if (monthlyProgressMonthSelect && !monthlyProgressStartInput?.value && !monthlyProgressEndInput?.value) {
+        const now = new Date();
+        monthlyProgressMonthSelect.value = String(now.getMonth() + 1).padStart(2, '0');
+        setMonthDateInputs(monthlyProgressMonthSelect.value);
+      }
+
+      const rangeResult = getMonthlyProgressRangeFromInputs();
+      if (rangeResult?.error) {
+        alert(rangeResult.error);
+        return;
+      }
+      buildMonthlyProgressGrid(rangeResult);
+      monthlyProgressModal?.classList.remove("hidden");
+    });
+
+    monthlyProgressMonthSelect?.addEventListener('change', () => {
+      setMonthDateInputs(monthlyProgressMonthSelect.value);
+    });
+
+    applyMonthlyProgressRangeBtn?.addEventListener("click", () => {
+      const rangeResult = getMonthlyProgressRangeFromInputs();
+      if (rangeResult?.error) {
+        alert(rangeResult.error);
+        return;
+      }
+      buildMonthlyProgressGrid(rangeResult);
+    });
+
+    closeMonthlyProgressModalBtn?.addEventListener("click", () => {
+      monthlyProgressModal?.classList.add("hidden");
+    });
+
+    monthlyProgressModal?.addEventListener("click", (e) => {
+      if (e.target === monthlyProgressModal) {
+        monthlyProgressModal.classList.add("hidden");
+      }
+    });
+
     function buildIndexUrl(yearValue, planIdValue) {
       const params = new URLSearchParams();
       if (planIdValue) {
@@ -770,6 +1122,28 @@
         const currentPlanValue = planFilterSelect?.value || '';
         window.location.href = buildIndexUrl(currentYear, currentPlanValue);
       });
+    }
+
+    async function updateTaskCompletion(taskId, isCompleted, { reloadOnSuccess = false } = {}) {
+      const res = await fetch("/day/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task_id: taskId,
+          completed: isCompleted
+        })
+      });
+
+      const result = await res.json();
+      if (!result.ok) {
+        throw new Error(result.error || "저장 중 오류가 발생했습니다.");
+      }
+
+      if (reloadOnSuccess) {
+        location.reload();
+      }
+
+      return result;
     }
     
     document.querySelectorAll("[data-day-id]").forEach(day => {
@@ -805,7 +1179,7 @@
             // 링크가 있으면 표시
             if (task.link_url) {
               const normalizedLink = /^(https?:\/\/)/i.test(task.link_url) ? task.link_url : `https://${task.link_url}`;
-              taskHtml += `<div class="text-xs text-blue-600 mt-1"><a href="javascript:void(0)" onclick="window.open('${normalizedLink}', '_blank', 'noopener')" class="hover:underline">🔗 링크 열기</a></div>`;
+              taskHtml += `<div class="text-xs text-blue-600 mt-1"><a href="${normalizedLink}" target="_blank" rel="noopener noreferrer" class="hover:underline task-link-open" data-task-id="${task.task_id}">🔗 링크 열기</a></div>`;
             }
             
             taskHtml += `
@@ -827,23 +1201,32 @@
             checkbox.addEventListener("change", async (e) => {
               const taskId = e.target.dataset.taskId;
               const isCompleted = e.target.checked;
-              
-              const res = await fetch("/day/update", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  task_id: taskId,
-                  completed: isCompleted
-                })
-              });
-              
-              const result = await res.json();
-              if (!result.ok) {
-                alert(result.error || "저장 중 오류가 발생했습니다.");
+
+              try {
+                await updateTaskCompletion(taskId, isCompleted, { reloadOnSuccess: true });
+              } catch (error) {
+                alert(error.message || "저장 중 오류가 발생했습니다.");
                 e.target.checked = !isCompleted; // 되돌리기
-              } else {
-                // 체크 시 페이지 새로고침하여 달력 업데이트
-                location.reload();
+              }
+            });
+          });
+
+          // 링크 클릭 시 자동 완료 처리
+          taskList.querySelectorAll(".task-link-open").forEach(linkEl => {
+            linkEl.addEventListener("click", async (e) => {
+              const taskId = linkEl.dataset.taskId;
+              if (!taskId) return;
+
+              const checkbox = taskList.querySelector(`.task-checkbox[data-task-id="${taskId}"]`);
+              if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+              }
+
+              try {
+                await updateTaskCompletion(taskId, true, { reloadOnSuccess: false });
+              } catch (error) {
+                if (checkbox) checkbox.checked = false;
+                alert(error.message || "완료 처리 중 오류가 발생했습니다.");
               }
             });
           });
@@ -875,6 +1258,7 @@
         const titleEl = document.getElementById('planDetailTitle');
         const contentEl = document.getElementById('planDetailContent');
         
+        modal.dataset.planId = planId;
         titleEl.textContent = planTitle;
         contentEl.innerHTML = '<div class="text-center py-8 text-gray-500">로딩 중...</div>';
         modal.classList.remove('hidden');
@@ -978,6 +1362,19 @@
     // 계획 상세 모달 닫기
     document.getElementById('closePlanDetailModal').addEventListener('click', () => {
       document.getElementById('planDetailModal').classList.add('hidden');
+    });
+
+    // 계획 상세 모달에서 바로 계획 편집 열기
+    document.getElementById('openEditPlanFromDetail')?.addEventListener('click', () => {
+      const detailModal = document.getElementById('planDetailModal');
+      const planId = detailModal?.dataset.planId;
+      if (!planId) {
+        alert('수정할 계획 정보를 찾을 수 없습니다.');
+        return;
+      }
+
+      detailModal.classList.add('hidden');
+      openDetailedPlanEditor(planId);
     });
     
     // 체크박스 상태 변경 함수
@@ -1363,26 +1760,18 @@
       const text = String(rawText || '').replace(/\r/g, '\n');
       const rows = [];
 
-      const strictMatches = text.match(/\[\s*\d+\s*강\s*\][^\n]*/g) || [];
-      if (strictMatches.length) {
-        strictMatches.forEach(m => {
-          const title = String(m)
-            .replace(/\s+\d+\s*분\s*$/i, '')
-            .replace(/\s+학습하기\s*$/i, '')
-            .trim();
-          if (title) rows.push({ title, link_url: '', selected: true });
-        });
-        return rows;
-      }
-
+      const lectureLinePattern = /^(?:\[\s*\d+\s*강\s*\]|[A-Za-z]?\s*\d+\s*강\s*[-.:)]?\s*).+/;
       const lines = text.split(/\n+/).map(v => v.trim()).filter(Boolean);
+
       lines.forEach(line => {
         const cleaned = line
           .replace(/^\d+\s+/, '')
           .replace(/\s+\d+\s*분\s*$/i, '')
           .replace(/\s+학습하기\s*$/i, '')
+          .replace(/\s+이어보기\s*$/i, '')
           .trim();
-        if (/\[\s*\d+\s*강\s*\]/.test(cleaned)) {
+
+        if (lectureLinePattern.test(cleaned)) {
           rows.push({ title: cleaned, link_url: '', selected: true });
         }
       });
@@ -1488,7 +1877,7 @@
     previewSourceTextBtn?.addEventListener("click", () => {
       const rows = parseRowsFromPastedText(loadTemplateSourceText?.value || '');
       if (!rows.length) {
-        alert('붙여넣기 텍스트에서 강의 목록을 찾지 못했습니다. [26강] 같은 형식이 포함된 영역을 복사해 주세요.');
+        alert('붙여넣기 텍스트에서 강의 목록을 찾지 못했습니다. 예: [26강], p9강, 10강 형식이 포함된 영역을 복사해 주세요.');
         return;
       }
 
@@ -1697,6 +2086,61 @@
     const openManagePlanModalBtn = document.getElementById("openManagePlanModal");
     const closeManagePlanModalBtn = document.getElementById("closeManagePlanModal");
 
+    async function openDetailedPlanEditor(planId) {
+      const normalizedPlanId = String(planId);
+      managePlanModal?.classList.remove("hidden");
+
+      const section = document.querySelector(`.daily-plan-section-modal[data-plan-id="${normalizedPlanId}"]`);
+      const toggleBtn = document.querySelector(`.toggle-daily-plan-modal[data-plan-id="${normalizedPlanId}"]`);
+      if (!section || !toggleBtn) {
+        alert('상세계획 편집 영역을 찾을 수 없습니다.');
+        return;
+      }
+
+      if (section.classList.contains("hidden")) {
+        await loadDailyPlansModal(normalizedPlanId);
+        section.classList.remove("hidden");
+      }
+
+      const tbody = document.querySelector(`#daily-plan-table-modal-${normalizedPlanId} tbody`);
+      const dailyPlansCount = tbody?.querySelectorAll('tr').length || 0;
+      toggleBtn.textContent = `▲ 상세계획 (${dailyPlansCount})`;
+
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function openPlanEditModal(planId) {
+      const normalizedPlanId = String(planId);
+      const planData = plansDataMap[normalizedPlanId];
+
+      if (!planData) {
+        alert('계획 정보를 불러올 수 없습니다.');
+        return;
+      }
+
+      // 색상 팔레트 생성
+      const colors = ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BEEE', '#FFDFD3'];
+      const colorPicker = document.getElementById('colorPicker');
+      const currentColor = normalizeHexColor(planData.color) || '#BAE1FF';
+
+      colorPicker.innerHTML = colors.map(color => `
+        <button type="button" class="w-12 h-12 rounded-lg border-4 hover:scale-110 transition-transform color-option" 
+          data-color="${color}" 
+          style="background-color: ${color}; border-color: ${color === currentColor ? '#000' : '#ddd'}; border-width: ${color === currentColor ? '4px' : '2px'};">
+        </button>
+      `).join('');
+
+      // 입력 필드에 정보 채우기
+      document.getElementById('editPlanTitle').value = planData.title;
+      document.getElementById('editPlanSubject').value = planData.subject;
+      document.getElementById('editPlanModal').dataset.planId = normalizedPlanId;
+      document.getElementById('editPlanModal').dataset.selectedColor = currentColor;
+      syncEditPlanColorControls(currentColor);
+
+      const editPlanModal = document.getElementById('editPlanModal');
+      editPlanModal.classList.remove('hidden');
+    }
+
     openManagePlanModalBtn?.addEventListener("click", () => {
       managePlanModal.classList.remove("hidden");
     });
@@ -1746,34 +2190,7 @@
 
       if (editBtn) {
         const planId = editBtn.dataset.planId;
-        const planData = plansDataMap[planId];
-        
-        if (!planData) {
-          alert('계획 정보를 불러올 수 없습니다.');
-          return;
-        }
-
-        // 색상 팔레트 생성
-        const colors = ['#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BEEE', '#FFDFD3'];
-        const colorPicker = document.getElementById('colorPicker');
-        const currentColor = normalizeHexColor(planData.color) || '#BAE1FF';
-        
-        colorPicker.innerHTML = colors.map(color => `
-          <button type="button" class="w-12 h-12 rounded-lg border-4 hover:scale-110 transition-transform color-option" 
-            data-color="${color}" 
-            style="background-color: ${color}; border-color: ${color === currentColor ? '#000' : '#ddd'}; border-width: ${color === currentColor ? '4px' : '2px'};">
-          </button>
-        `).join('');
-
-        // 입력 필드에 정보 채우기
-        document.getElementById('editPlanTitle').value = planData.title;
-        document.getElementById('editPlanSubject').value = planData.subject;
-        document.getElementById('editPlanModal').dataset.planId = planId;
-        document.getElementById('editPlanModal').dataset.selectedColor = currentColor;
-        syncEditPlanColorControls(currentColor);
-        
-        const editPlanModal = document.getElementById('editPlanModal');
-        editPlanModal.classList.remove('hidden');
+        openPlanEditModal(planId);
         return;
       }
     });
