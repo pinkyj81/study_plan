@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f8ff;
+      --surface: #ffffff;
+      --text: #1f2a3a;
+      --muted: #7a8699;
+      --line: #e8eef8;
+      --accent: #2d7df6;
+      --accent-soft: #eaf2ff;
+      --peach: #fff2ea;
+      --mint: #eafaf2;
+      --sky: #ebf6ff;
+      --rose: #fff1f4;
+      --lav: #f7f1ff;
+      --shadow: 0 12px 35px rgba(44, 94, 168, 0.13);
+      --radius-xl: 24px;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 20%, #dce9ff 0%, transparent 34%),
+        radial-gradient(circle at 85% 8%, #e8f8ff 0%, transparent 24%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 18px;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      min-height: calc(100vh - 36px);
+    }
+
+    .clock {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .clock .date-main {
+      margin-top: 6px;
+      font-size: 44px;
+      color: #1f2a3a;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+
+    .clock .date-year {
+      margin-top: 8px;
+      font-size: 28px;
+      color: var(--muted);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .nav-btn {
+      width: 156px;
+      border: 0;
+      background: transparent;
+      border-radius: 14px;
+      padding: 12px 6px;
+      color: #7b879a;
+      font-size: 12px;
+      font-weight: 700;
+      display: grid;
+      gap: 6px;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .nav-btn .icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      background: #fff;
+      font-size: 15px;
+    }
+
+    .nav-btn .icon svg {
+      width: 34px;
+      height: 34px;
+      stroke-width: 2;
+      color: #6f7f95;
+    }
+
+    .nav-btn.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .main {
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid #edf2fb;
+      border-radius: 24px;
+      padding: 18px;
+      backdrop-filter: blur(4px);
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "Nunito", sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+    }
+
+    .brand .temp {
+      font-size: 18px;
+      color: #6c7687;
+      margin-left: 6px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand .temp svg {
+      width: 24px;
+      height: 24px;
+      stroke-width: 2;
+    }
+
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 8px 12px;
+    }
+
+    .date-nav button,
+    .date-nav a {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      color: #627089;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+    }
+
+    .tab {
+      background: #f4f8ff;
+      border-radius: 999px;
+      padding: 4px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab button {
+      border: 0;
+      background: transparent;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-weight: 800;
+      color: #718096;
+      cursor: pointer;
+    }
+
+    .tab .active {
+      color: var(--accent);
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(45, 125, 246, 0.15);
+    }
+
+    .overview {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      box-shadow: 0 8px 18px rgba(46, 92, 165, 0.08);
+    }
+
+    .meal {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .meal-icon {
+      width: 40px;
+      height: 40px;
+      color: #7a8ca7;
+      stroke-width: 2;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+    }
+
+    .chip.blue { background: #e8f1ff; color: #2e73d4; }
+    .chip.orange { background: #fff0df; color: #db7f20; }
+    .chip.gray { background: #f1f3f8; color: #708197; }
+
+    .progress {
+      height: 8px;
+      background: #edf1fa;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #ffc451, #ffb020);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .week {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(150px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .day {
+      min-width: 150px;
+    }
+
+    .day h3 {
+      margin: 0 0 8px;
+      color: #5d6b81;
+      font-family: "Nunito", sans-serif;
+      font-size: 20px;
+    }
+
+    .task {
+      border-radius: var(--radius-md);
+      padding: 10px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      font-size: 13px;
+    }
+
+    .task-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .task-check {
+      margin-top: 3px;
+      width: 16px;
+      height: 16px;
+      accent-color: #2d7df6;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .task-content {
+      min-width: 0;
+      color: #2b3547;
+    }
+
+    .task.completed {
+      opacity: 0.78;
+      border-style: dashed;
+    }
+
+    .task.completed .task-content b,
+    .task.completed .task-content .meta {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+
+    .task .meta {
+      display: block;
+    }
+
+    .task b {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .task.peach { background: var(--peach); }
+    .task.mint { background: var(--mint); }
+    .task.sky { background: var(--sky); }
+    .task.rose { background: var(--rose); }
+    .task.lav { background: var(--lav); }
+
+    .add-task {
+      border-radius: var(--radius-md);
+      border: 1px dashed #d5dfef;
+      background: #fff;
+      color: #90a0b9;
+      text-align: center;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .bottom {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .panel h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-family: "Nunito", sans-serif;
+    }
+
+    .panel ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #465268;
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .ranking {
+      display: grid;
+      gap: 9px;
+      font-size: 14px;
+      color: #3f4a5e;
+      font-weight: 700;
+    }
+
+    .reward-line {
+      margin: 16px 0 8px;
+      height: 10px;
+      border-radius: 999px;
+      background: #edf3ff;
+      position: relative;
+    }
+
+    .reward-line::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 80%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #76d88d, #47b96c);
+    }
+
+    .fab {
+      position: fixed;
+      right: 26px;
+      bottom: 22px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 0;
+      background: linear-gradient(150deg, #42a3ff, #1d6ef2);
+      color: #fff;
+      font-size: 42px;
+      line-height: 1;
+      box-shadow: 0 16px 30px rgba(29, 110, 242, 0.35);
+      cursor: pointer;
+    }
+
+    @media (max-width: 1200px) {
+      .overview {
+        grid-template-columns: repeat(2, minmax(210px, 1fr));
+      }
+
+      .bottom {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        min-height: auto;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+
+      .clock {
+        width: 100%;
+      }
+
+      .nav-btn {
+        width: 110px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .main {
+        padding: 12px;
+      }
+
+      .brand {
+        font-size: 24px;
+      }
+
+      .overview {
+        grid-template-columns: 1fr;
+      }
+
+      .bottom {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="clock">
+        <div id="todayDateYear" class="date-year"></div>
+        <div id="todayDateMain" class="date-main"></div>
+      </div>
+      <button class="nav-btn active"><span class="icon"><i data-lucide="calendar-days"></i></span>Schedule</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="check-check"></i></span>To-do</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="utensils"></i></span>Meals</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="bar-chart-3"></i></span>Stats</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="target"></i></span>Focus</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="notebook-pen"></i></span>Notes</button>
+      <button class="nav-btn"><span class="icon"><i data-lucide="settings"></i></span>Settings</button>
+    </aside>
+
+    <main class="main">
+      <section class="top">
+        <div class="brand">My family <span class="temp"><span id="weatherTemp">--°</span> <span id="weatherIconWrap"><i data-lucide="cloud-sun"></i></span></span></div>
+        <div class="date-nav">
+          <a href="{{ url_for('family_overview', week_offset=week_offset - 1) }}" aria-label="previous">‹</a>
+          <strong>{{ week_range_label }}</strong>
+          <a href="{{ url_for('family_overview', week_offset=week_offset + 1) }}" aria-label="next">›</a>
+        </div>
+        <div class="tab">
+          <button class="active">Week</button>
+          <button>Month</button>
+        </div>
+      </section>
+
+      <section class="overview">
+        <article class="card">
+          <div class="meal">
+            <div>
+              <strong>French toast and syrup</strong>
+              <div class="chip-row">
+                <span class="chip blue">BREAKFAST</span>
+                <span class="chip orange">LUNCH</span>
+                <span class="chip gray">SNACK</span>
+              </div>
+            </div>
+            <i class="meal-icon" data-lucide="coffee"></i>
+          </div>
+        </article>
+
+        <article class="card">
+          <strong>Help with homework</strong>
+          <div class="progress"><span style="width:64%"></span></div>
+          <div class="small" style="margin-top:6px;">3/5 completed</div>
+        </article>
+
+        <article class="card">
+          <div style="display:flex; gap:14px; justify-content:space-between;">
+            <div><strong style="font-size:24px;">14</strong><div class="small">DAYS</div></div>
+            <div><strong style="font-size:24px;">34</strong><div class="small">HRS</div></div>
+            <div><strong style="font-size:24px;">12</strong><div class="small">MINS</div></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <strong>Dad</strong>
+          <div class="small" style="margin-top:4px;">Day focus: Be productive</div>
+          <div class="progress"><span style="width:75%; background:linear-gradient(90deg, #ffd46a, #ffc13d);"></span></div>
+          <div class="small" style="margin-top:6px;">120 pts · 75%</div>
+        </article>
+      </section>
+
+      <section class="week">
+        {% for day in week_days %}
+        <div class="day">
+          <h3>{{ day.label }}</h3>
+          {% if day.tasks %}
+            {% for task in day.tasks %}
+            <div class="task {{ task.color_class }} {% if task.status == 'done' %}completed{% endif %}" data-task-id="{{ task.task_id }}">
+              <label class="task-row">
+                <input type="checkbox"
+                       class="task-check"
+                       data-task-id="{{ task.task_id }}"
+                       {% if task.status == 'done' %}checked{% endif %}>
+                <span class="task-content">
+                  <b>{{ task.title }}</b>
+                  <span class="meta">{{ task.meta }}</span>
+                </span>
+              </label>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="add-task">일정 없음</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+
+      <section class="bottom">
+        <article class="card panel">
+          <h4>This week's goals</h4>
+          <ul>
+            <li>Family time</li>
+            <li>Exercise 3 times</li>
+            <li>Read 2 books</li>
+          </ul>
+        </article>
+
+        <article class="card panel">
+          <h4>Notes</h4>
+          <ul>
+            <li>Buy birthday gift for Mom</li>
+            <li>Plan weekend camping menu</li>
+            <li>Check school calendar</li>
+          </ul>
+        </article>
+
+        <article class="card panel">
+          <h4>Top priorities</h4>
+          <div class="ranking">
+            <div>1 · Finish science project</div>
+            <div>2 · Prepare for math test</div>
+            <div>3 · Family camping trip</div>
+          </div>
+        </article>
+
+        <article class="card panel">
+          <h4>Reward progress</h4>
+          <div class="reward-line"></div>
+          <div class="small">80% · Keep going! You are doing great.</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <button class="fab" aria-label="add task">+</button>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    lucide.createIcons();
+
+    const todayDateMainElement = document.getElementById("todayDateMain");
+    const todayDateYearElement = document.getElementById("todayDateYear");
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const year = String(now.getFullYear());
+    todayDateMainElement.textContent = `${month}/${day}`;
+    todayDateYearElement.textContent = year;
+
+    async function updateCurrentWeather() {
+      const weatherTempElement = document.getElementById("weatherTemp");
+      const weatherIconWrapElement = document.getElementById("weatherIconWrap");
+      const weatherUrl = "https://api.open-meteo.com/v1/forecast?latitude=35.2285&longitude=128.8890&current=temperature_2m,weather_code&timezone=Asia%2FSeoul";
+
+      function iconFromWeatherCode(code) {
+        if (code === 0) return "sun";
+        if ([1, 2].includes(code)) return "cloud-sun";
+        if ([3, 45, 48].includes(code)) return "cloud";
+        if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "cloud-rain";
+        if ([71, 73, 75, 77, 85, 86].includes(code)) return "cloud-snow";
+        if ([95, 96, 99].includes(code)) return "cloud-lightning";
+        return "cloud";
+      }
+
+      try {
+        const response = await fetch(weatherUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("weather fetch failed");
+        }
+
+        const weatherData = await response.json();
+        const currentWeather = weatherData.current;
+        if (!currentWeather) {
+          throw new Error("weather data missing");
+        }
+
+        const temperature = Math.round(currentWeather.temperature_2m);
+        const iconName = iconFromWeatherCode(currentWeather.weather_code);
+
+        weatherTempElement.textContent = `${temperature}°`;
+        weatherIconWrapElement.innerHTML = `<i data-lucide="${iconName}"></i>`;
+        lucide.createIcons();
+      } catch (error) {
+        weatherTempElement.textContent = "--°";
+        weatherIconWrapElement.innerHTML = '<i data-lucide="cloud-off"></i>';
+        lucide.createIcons();
+      }
+    }
+
+    updateCurrentWeather();
+
+    document.addEventListener("change", async (event) => {
+      const checkbox = event.target.closest(".task-check");
+      if (!checkbox) {
+        return;
+      }
+
+      const taskId = Number(checkbox.dataset.taskId);
+      if (!taskId) {
+        return;
+      }
+
+      const taskCard = checkbox.closest(".task");
+      const completed = checkbox.checked;
+      checkbox.disabled = true;
+
+      try {
+        const response = await fetch("/day/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task_id: taskId, completed })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "상태 저장 실패");
+        }
+
+        taskCard.classList.toggle("completed", completed);
+      } catch (error) {
+        checkbox.checked = !completed;
+        alert(error.message || "체크 상태 저장에 실패했습니다.");
+      } finally {
+        checkbox.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

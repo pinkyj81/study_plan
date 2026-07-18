@@ -23,6 +23,92 @@ def get_today_kst():
     """한국 시간대 기준 오늘 날짜 반환"""
     return datetime.now(KST).date()
 
+
+def get_family_week_schedule(week_offset=0):
+    """가족 대시보드용 주간 학습 일정 조회"""
+    today = get_today_kst()
+    # 일요일 시작 주간
+    days_from_sunday = (today.weekday() + 1) % 7
+    week_start = today - timedelta(days=days_from_sunday) + timedelta(days=week_offset * 7)
+    week_end = week_start + timedelta(days=6)
+
+    weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    week_days = []
+    day_map = {}
+
+    for offset in range(7):
+        day = week_start + timedelta(days=offset)
+        weekday_idx = (day.weekday() + 1) % 7
+        day_item = {
+            "iso_date": day.strftime("%Y-%m-%d"),
+            "label": f"{weekday_names[weekday_idx]} {day.day}",
+            "tasks": []
+        }
+        week_days.append(day_item)
+        day_map[day_item["iso_date"]] = day_item
+
+    query = text("""
+        SELECT
+            t.task_id,
+            u.user_name,
+            p.subject,
+            p.title AS plan_title,
+            t.plan_date,
+            t.task_title,
+            t.order_no,
+            ISNULL(
+                (SELECT TOP 1 status
+                 FROM dbo.study_plan_log
+                 WHERE task_id = t.task_id
+                 ORDER BY updated_at DESC),
+                'planned'
+            ) AS status
+        FROM dbo.study_plan_task t
+        INNER JOIN dbo.study_plan p ON p.plan_id = t.plan_id
+        INNER JOIN dbo.study_plan_user u ON u.user_id = p.user_id
+        WHERE t.plan_date BETWEEN :week_start AND :week_end
+          AND u.user_name NOT IN ('guest', '가족')
+        ORDER BY t.plan_date, t.order_no, u.user_name
+    """)
+
+    rows = db.session.execute(
+        query,
+        {"week_start": week_start, "week_end": week_end}
+    ).fetchall()
+
+    color_classes = ["rose", "mint", "sky", "peach", "lav"]
+    user_color_map = {
+        "권혁재": "sky",   # 파란색
+        "권유현": "rose"   # 분홍색
+    }
+
+    for row in rows:
+        date_key = row.plan_date.strftime("%Y-%m-%d")
+        if date_key not in day_map:
+            continue
+
+        order_no = row.order_no if row.order_no else 1
+        color_class = user_color_map.get(
+            row.user_name,
+            color_classes[(order_no - 1) % len(color_classes)]
+        )
+        subject_text = row.subject or row.plan_title or "학습"
+        day_map[date_key]["tasks"].append({
+            "task_id": row.task_id,
+            "title": row.task_title,
+            "meta": f"{row.user_name} · {subject_text}",
+            "status": row.status,
+            "color_class": color_class
+        })
+
+    week_range_label = f"{week_start.strftime('%b')} {week_start.day} - {week_end.strftime('%b')} {week_end.day}"
+
+    return {
+        "week_days": week_days,
+        "week_range_label": week_range_label,
+        "total_tasks": len(rows)
+    }
+
 # 파스텔 색상 팔레트
 PLAN_COLORS = [
     '#FFE5E9',  # soft pastel pink
@@ -258,6 +344,9 @@ def login():
     if request.method == "POST":
         data = request.get_json(force=True) if request.is_json else request.form
         user_name = data.get("username")
+
+        if user_name == "가족":
+            return redirect(url_for('family_overview'))
         
         try:
             # 사용자 확인
@@ -298,6 +387,19 @@ def login():
     
     # GET 요청 - 로그인 페이지 표시
     return render_template("login.html")
+
+
+@app.route("/family")
+def family_overview():
+    week_offset = request.args.get("week_offset", default=0, type=int)
+    family_week = get_family_week_schedule(week_offset=week_offset)
+    return render_template(
+        "family_empty.html",
+        week_days=family_week["week_days"],
+        week_range_label=family_week["week_range_label"],
+        family_total_tasks=family_week["total_tasks"],
+        week_offset=week_offset
+    )
 
 @app.route("/logout")
 def logout():
