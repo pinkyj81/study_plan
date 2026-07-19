@@ -17,6 +17,7 @@
       --accent: #2d7df6;
       --accent-soft: #eaf2ff;
       --peach: #fff2ea;
+      --yellow: #fffbe0;
       --mint: #eafaf2;
       --sky: #ebf6ff;
       --rose: #fff1f4;
@@ -44,7 +45,7 @@
 
     .shell {
       display: grid;
-      grid-template-columns: 200px 1fr;
+      grid-template-columns: 112px 1fr;
       gap: 18px;
       max-width: 1600px;
       margin: 0 auto;
@@ -56,11 +57,11 @@
       border: 1px solid var(--line);
       border-radius: 24px;
       box-shadow: var(--shadow);
-      padding: 14px 10px;
+      padding: 10px 4px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 12px;
+      align-items: stretch;
+      gap: 10px;
       min-height: calc(100vh - 36px);
     }
 
@@ -87,24 +88,25 @@
     }
 
     .nav-btn {
-      width: 156px;
+      width: 100%;
       border: 0;
       background: transparent;
       border-radius: 14px;
-      padding: 12px 6px;
+      padding: 10px 2px;
       color: #7b879a;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       display: grid;
-      gap: 6px;
+      gap: 4px;
       place-items: center;
       cursor: pointer;
+      text-decoration: none;
     }
 
     .nav-btn .icon {
-      width: 58px;
-      height: 58px;
-      border-radius: 18px;
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
       border: 1px solid var(--line);
       display: grid;
       place-items: center;
@@ -113,8 +115,8 @@
     }
 
     .nav-btn .icon svg {
-      width: 34px;
-      height: 34px;
+      width: 28px;
+      height: 28px;
       stroke-width: 2;
       color: #6f7f95;
     }
@@ -139,6 +141,13 @@
       gap: 10px;
       flex-wrap: wrap;
       margin-bottom: 14px;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-left: auto;
     }
 
     .brand {
@@ -197,6 +206,20 @@
       padding: 4px;
       display: flex;
       gap: 4px;
+    }
+
+    .top-date {
+      text-align: right;
+      margin-bottom: 0;
+    }
+
+    .top-date .date-main {
+      font-size: 42px;
+    }
+
+    .top-date .date-year {
+      margin-top: 2px;
+      font-size: 22px;
     }
 
     .tab button {
@@ -352,6 +375,7 @@
     }
 
     .task.peach { background: var(--peach); }
+    .task.yellow { background: var(--yellow); }
     .task.mint { background: var(--mint); }
     .task.sky { background: var(--sky); }
     .task.rose { background: var(--rose); }
@@ -433,11 +457,169 @@
       cursor: pointer;
     }
 
-    @media (max-width: 1200px) {
-      .overview {
-        grid-template-columns: repeat(2, minmax(210px, 1fr));
-      }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      padding: 18px;
+    }
 
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .project-modal {
+      width: min(460px, 100%);
+      background: #fff;
+      border: 1px solid #dce4f2;
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 20px 44px rgba(20, 40, 80, 0.2);
+      position: relative;
+      max-height: calc(100vh - 36px);
+      overflow-y: auto;
+    }
+
+    .project-modal h2 {
+      margin: 0 0 14px;
+      text-align: center;
+      font-family: "Nunito", sans-serif;
+      font-size: 24px;
+      letter-spacing: 0.02em;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      border: 0;
+      background: transparent;
+      color: #6f7a8f;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .project-field {
+      margin-bottom: 10px;
+    }
+
+    .project-field label {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .project-field input,
+    .project-field select {
+      width: 100%;
+      height: 44px;
+      border: 1px solid #d4d9e2;
+      border-radius: 8px;
+      padding: 0 12px;
+      font-size: 15px;
+      color: #303a4b;
+      background: #fff;
+    }
+
+    .weekday-title {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      margin: 2px 0 6px;
+    }
+
+    .weekday-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #2f3a4d;
+      margin-bottom: 4px;
+    }
+
+    .weekday-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .weekday-row input {
+      width: 16px;
+      height: 16px;
+      accent-color: #1f73f0;
+    }
+
+    .weekday-help {
+      margin: 0 0 8px;
+      color: #8d97a8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .date-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .project-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .project-save {
+      border: 0;
+      border-radius: 10px;
+      background: #2f80f4;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 8px 18px;
+      cursor: pointer;
+    }
+
+    .manage-modal {
+      width: min(990px, calc(100vw - 28px));
+      height: min(676px, calc(100vh - 28px));
+      background: #fff;
+      border: 1px solid #dce4f2;
+      border-radius: 18px;
+      box-shadow: 0 24px 50px rgba(20, 40, 80, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .manage-modal .modal-close {
+      z-index: 2;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 999px;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      top: 8px;
+      right: 8px;
+      border: 1px solid #d9e2f1;
+      font-size: 20px;
+    }
+
+    .manage-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      background: #fff;
+    }
+
+    @media (max-width: 1200px) {
       .bottom {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
       }
@@ -460,6 +642,11 @@
         width: 100%;
       }
 
+      .top-right {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
       .nav-btn {
         width: 110px;
       }
@@ -474,7 +661,54 @@
         font-size: 24px;
       }
 
-      .overview {
+      .top-right {
+        justify-content: space-between;
+      }
+
+      .top-date .date-main {
+        font-size: 34px;
+      }
+
+      .top-date .date-year {
+        font-size: 18px;
+      }
+
+      .project-modal {
+        padding: 18px;
+      }
+
+      .manage-modal {
+        width: 100%;
+        height: calc(100vh - 20px);
+      }
+
+      .project-modal h2 {
+        font-size: 24px;
+      }
+
+      .project-field label,
+      .weekday-title {
+        font-size: 16px;
+      }
+
+      .project-field input {
+        height: 46px;
+        font-size: 14px;
+      }
+
+      .weekday-row {
+        font-size: 14px;
+      }
+
+      .weekday-help {
+        font-size: 12px;
+      }
+
+      .project-save {
+        font-size: 15px;
+      }
+
+      .date-grid {
         grid-template-columns: 1fr;
       }
 
@@ -487,13 +721,10 @@
 <body>
   <div class="shell">
     <aside class="sidebar">
-      <div class="clock">
-        <div id="todayDateYear" class="date-year"></div>
-        <div id="todayDateMain" class="date-main"></div>
-      </div>
       <button class="nav-btn active"><span class="icon"><i data-lucide="calendar-days"></i></span>Schedule</button>
+      <button id="openProjectModal" class="nav-btn"><span class="icon"><i data-lucide="folder-plus"></i></span>New Project</button>
+      <button id="openManagePlanModal" class="nav-btn"><span class="icon"><i data-lucide="square-pen"></i></span>Edit Project</button>
       <button class="nav-btn"><span class="icon"><i data-lucide="check-check"></i></span>To-do</button>
-      <button class="nav-btn"><span class="icon"><i data-lucide="utensils"></i></span>Meals</button>
       <button class="nav-btn"><span class="icon"><i data-lucide="bar-chart-3"></i></span>Stats</button>
       <button class="nav-btn"><span class="icon"><i data-lucide="target"></i></span>Focus</button>
       <button class="nav-btn"><span class="icon"><i data-lucide="notebook-pen"></i></span>Notes</button>
@@ -508,47 +739,16 @@
           <strong>{{ week_range_label }}</strong>
           <a href="{{ url_for('family_overview', week_offset=week_offset + 1) }}" aria-label="next">›</a>
         </div>
-        <div class="tab">
-          <button class="active">Week</button>
-          <button>Month</button>
+        <div class="top-right">
+          <div class="clock top-date">
+            <div id="todayDateYear" class="date-year"></div>
+            <div id="todayDateMain" class="date-main"></div>
+          </div>
+          <div class="tab">
+            <button class="active">Week</button>
+            <button>Month</button>
+          </div>
         </div>
-      </section>
-
-      <section class="overview">
-        <article class="card">
-          <div class="meal">
-            <div>
-              <strong>French toast and syrup</strong>
-              <div class="chip-row">
-                <span class="chip blue">BREAKFAST</span>
-                <span class="chip orange">LUNCH</span>
-                <span class="chip gray">SNACK</span>
-              </div>
-            </div>
-            <i class="meal-icon" data-lucide="coffee"></i>
-          </div>
-        </article>
-
-        <article class="card">
-          <strong>Help with homework</strong>
-          <div class="progress"><span style="width:64%"></span></div>
-          <div class="small" style="margin-top:6px;">3/5 completed</div>
-        </article>
-
-        <article class="card">
-          <div style="display:flex; gap:14px; justify-content:space-between;">
-            <div><strong style="font-size:24px;">14</strong><div class="small">DAYS</div></div>
-            <div><strong style="font-size:24px;">34</strong><div class="small">HRS</div></div>
-            <div><strong style="font-size:24px;">12</strong><div class="small">MINS</div></div>
-          </div>
-        </article>
-
-        <article class="card">
-          <strong>Dad</strong>
-          <div class="small" style="margin-top:4px;">Day focus: Be productive</div>
-          <div class="progress"><span style="width:75%; background:linear-gradient(90deg, #ffd46a, #ffc13d);"></span></div>
-          <div class="small" style="margin-top:6px;">120 pts · 75%</div>
-        </article>
       </section>
 
       <section class="week">
@@ -614,6 +814,72 @@
     </main>
   </div>
 
+  <div id="projectModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="project-modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+      <button id="closeProjectModal" class="modal-close" aria-label="닫기">×</button>
+      <h2 id="projectModalTitle">새 학습 계획 추가</h2>
+
+      <div class="project-field">
+        <label for="projectTargetName">이름</label>
+        <select id="projectTargetName">
+          <option value="">이름 선택</option>
+          {% for member_name in family_members %}
+          <option value="{{ member_name }}">{{ member_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="project-field">
+        <label for="projectPlanTitle">계획 제목</label>
+        <input id="projectPlanTitle" type="text" placeholder="예: TOEFL 단어 외우기">
+      </div>
+
+      <div class="project-field">
+        <label for="projectPlanSubject">과목명</label>
+        <input id="projectPlanSubject" type="text" placeholder="예: 영어">
+      </div>
+
+      <div class="project-field">
+        <label for="projectPlanImageUrl">이미지 URL (선택)</label>
+        <input id="projectPlanImageUrl" type="text" placeholder="예: https://example.com/image.jpg">
+      </div>
+
+      <span class="weekday-title">요일 선택</span>
+      <div class="weekday-row">
+        <label><input type="checkbox" class="project-weekday-checkbox" value="mon" checked>월</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="tue" checked>화</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="wed" checked>수</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="thu" checked>목</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="fri" checked>금</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="sat" checked>토</label>
+        <label><input type="checkbox" class="project-weekday-checkbox" value="sun" checked>일</label>
+      </div>
+      <p class="weekday-help">선택한 요일만 학습 계획이 배치됩니다.</p>
+
+      <div class="date-grid">
+        <div class="project-field" style="margin:0;">
+          <label for="projectPlanStart">시작일</label>
+          <input id="projectPlanStart" type="date">
+        </div>
+        <div class="project-field" style="margin:0;">
+          <label for="projectPlanEnd">종료일</label>
+          <input id="projectPlanEnd" type="date">
+        </div>
+      </div>
+
+      <div class="project-actions">
+        <button id="saveProjectPlanBtn" class="project-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manageModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="manage-modal" role="dialog" aria-modal="true" aria-label="학습 계획 관리">
+      <button id="closeManagePlanModal" class="modal-close" aria-label="닫기">×</button>
+      <iframe class="manage-frame" src="{{ url_for('manage_plan') }}" title="학습 계획 관리"></iframe>
+    </div>
+  </div>
+
   <button class="fab" aria-label="add task">+</button>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
@@ -669,6 +935,116 @@
     }
 
     updateCurrentWeather();
+
+    const projectModalBackdrop = document.getElementById("projectModalBackdrop");
+    const manageModalBackdrop = document.getElementById("manageModalBackdrop");
+    const openProjectModalBtn = document.getElementById("openProjectModal");
+    const openManagePlanModalBtn = document.getElementById("openManagePlanModal");
+    const closeProjectModalBtn = document.getElementById("closeProjectModal");
+    const closeManagePlanModalBtn = document.getElementById("closeManagePlanModal");
+    const saveProjectPlanBtn = document.getElementById("saveProjectPlanBtn");
+
+    function openProjectModal() {
+      projectModalBackdrop.classList.add("show");
+      projectModalBackdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeProjectModal() {
+      projectModalBackdrop.classList.remove("show");
+      projectModalBackdrop.setAttribute("aria-hidden", "true");
+    }
+
+    function openManagePlanModal() {
+      manageModalBackdrop.classList.add("show");
+      manageModalBackdrop.setAttribute("aria-hidden", "false");
+    }
+
+    function closeManagePlanModal() {
+      manageModalBackdrop.classList.remove("show");
+      manageModalBackdrop.setAttribute("aria-hidden", "true");
+    }
+
+    openProjectModalBtn.addEventListener("click", openProjectModal);
+    openManagePlanModalBtn.addEventListener("click", openManagePlanModal);
+    closeProjectModalBtn.addEventListener("click", closeProjectModal);
+    closeManagePlanModalBtn.addEventListener("click", closeManagePlanModal);
+
+    projectModalBackdrop.addEventListener("click", (event) => {
+      if (event.target === projectModalBackdrop) {
+        closeProjectModal();
+      }
+    });
+
+    manageModalBackdrop.addEventListener("click", (event) => {
+      if (event.target === manageModalBackdrop) {
+        closeManagePlanModal();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (projectModalBackdrop.classList.contains("show")) {
+        closeProjectModal();
+      }
+
+      if (manageModalBackdrop.classList.contains("show")) {
+        closeManagePlanModal();
+      }
+    });
+
+    saveProjectPlanBtn.addEventListener("click", async () => {
+      const targetName = document.getElementById("projectTargetName").value.trim();
+      const title = document.getElementById("projectPlanTitle").value.trim();
+      const subject = document.getElementById("projectPlanSubject").value.trim();
+      const imageUrl = document.getElementById("projectPlanImageUrl").value.trim();
+      const start = document.getElementById("projectPlanStart").value;
+      const end = document.getElementById("projectPlanEnd").value;
+      const selectedWeekdays = Array.from(document.querySelectorAll(".project-weekday-checkbox:checked")).map((checkbox) => checkbox.value);
+
+      if (!targetName || !title || !subject || !start || !end) {
+        alert("모든 항목을 입력해주세요!");
+        return;
+      }
+
+      if (selectedWeekdays.length === 0) {
+        alert("요일을 최소 1개 선택하세요!");
+        return;
+      }
+
+      saveProjectPlanBtn.disabled = true;
+
+      try {
+        const response = await fetch("/plan/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_name: targetName,
+            title,
+            subject,
+            image_url: imageUrl || null,
+            start_date: start,
+            end_date: end,
+            selected_weekdays: selectedWeekdays
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "계획 추가 실패");
+        }
+
+        alert(result.message || "계획이 추가되었습니다.");
+        closeProjectModal();
+        window.location.reload();
+      } catch (error) {
+        alert(error.message || "서버 오류로 저장하지 못했습니다.");
+      } finally {
+        saveProjectPlanBtn.disabled = false;
+      }
+    });
 
     document.addEventListener("change", async (event) => {
       const checkbox = event.target.closest(".task-check");

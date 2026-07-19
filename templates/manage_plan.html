@@ -4,6 +4,28 @@
   <meta charset="UTF-8">
   <title>학습 계획 관리</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .color-swatch {
+      width: 72px;
+      height: 72px;
+      border: 3px solid #d1d5db;
+      border-radius: 14px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45);
+      cursor: pointer;
+      padding: 0;
+      outline: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .color-swatch:hover {
+      transform: translateY(-1px);
+    }
+
+    .color-swatch.ring-4 {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+    }
+  </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <div class="max-w-5xl mx-auto p-8">
@@ -18,56 +40,56 @@
 
     <p class="text-gray-600 mb-6">원하신 새로 계획을 생성한 후 제 계획을 환영합니다.</p>
 
-    <!-- 통계 카드 -->
-    <div class="grid grid-cols-4 gap-4 mb-8">
-      <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-3xl font-bold text-blue-600 mb-2">{{ stats.total_plans }}</div>
-        <div class="text-sm text-gray-600">전체 계획</div>
-      </div>
-      <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-3xl font-bold text-green-600 mb-2">{{ stats.total_assigned }}</div>
-        <div class="text-sm text-gray-600">총 할당 계획</div>
-      </div>
-      <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-3xl font-bold text-purple-600 mb-2">{{ stats.completed }}</div>
-        <div class="text-sm text-gray-600">완료된 계획</div>
-      </div>
-      <div class="bg-white rounded-xl shadow p-6 text-center">
-        <div class="text-3xl font-bold text-orange-600 mb-2">{{ stats.completion_rate }}%</div>
-        <div class="text-sm text-gray-600">완료율</div>
-      </div>
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+      <label for="ownerFilter" class="text-sm font-semibold text-gray-700">이름 검색</label>
+      <input id="ownerFilter" list="ownerFilterOptions" class="w-64 max-w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" placeholder="전체">
+      <datalist id="ownerFilterOptions">
+        <option value="전체"></option>
+        {% for owner_name in owner_names %}
+        <option value="{{ owner_name }}"></option>
+        {% endfor %}
+      </datalist>
+      <button id="clearOwnerFilter" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm">전체 보기</button>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700 ml-2">
+        <input id="showCompletedPlans" type="checkbox" class="w-4 h-4">
+        <span>완료된 계획도 보기</span>
+      </label>
+      <span id="hiddenCompletedHint" class="text-sm text-gray-400"></span>
     </div>
 
     <!-- 계획 목록 -->
     <div class="space-y-4">
       {% for plan in plans %}
-      <div class="bg-white rounded-xl shadow p-6">
+      <div class="bg-white rounded-xl shadow p-6 plan-card" data-plan-owner="{{ plan.user_name }}" data-plan-completed="{{ '1' if plan.is_period_completed else '0' }}">
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <div class="flex items-center gap-2 mb-2">
-              <h3 class="text-xl font-bold">{{ plan.title }}</h3>
-              <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">본문</span>
+              <h3 class="text-lg font-bold">{{ plan.title }}</h3>
+              <span class="text-[11px] px-2 py-1 rounded {% if plan.user_name == '권혁재' %}bg-blue-100 text-blue-700{% elif plan.user_name == '권유현' %}bg-rose-100 text-rose-700{% elif plan.user_name == '박영진' %}bg-yellow-100 text-yellow-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ plan.user_name }}</span>
             </div>
-            <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
+            <div class="flex items-center gap-4 text-xs text-gray-600 mb-3">
+              {% set total_count = plan.daily_plans|length %}
+              {% set done_count = plan.daily_plans|selectattr('status', 'equalto', 'done')|list|length %}
               <div>
                 <span class="mr-1">📚 과목:</span>
                 <span class="font-medium">{{ plan.subject }}</span>
               </div>
               <div>
                 <span class="mr-1">📅 생성일:</span>
-                <span>2025-10-16</span>
+                <span>{{ plan.created_at or '-' }}</span>
               </div>
               <div>
                 <span class="mr-1">📈 진도:</span>
-                <span>18/38</span>
+                <span>{{ done_count }}/{{ total_count }}</span>
               </div>
             </div>
-            <button class="toggle-daily-plan text-sm text-gray-500 hover:text-gray-700" data-plan-id="{{ plan.plan_id }}">
-              ▼ 일일 계획 보기 ({{ plan.daily_plans|length }}개)
-            </button>
           </div>
           <div class="flex gap-2">
-            <button class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm">할당 계획 끝내기</button>
+            <button
+              class="toggle-daily-plan bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-medium"
+              data-plan-id="{{ plan.plan_id }}"
+              data-count="{{ plan.daily_plans|length }}"
+            >▼ 상세계획 ({{ plan.daily_plans|length }})</button>
             <button class="edit-plan-btn text-blue-600 hover:text-blue-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="수정">✏️</button>
             <button class="delete-plan-btn text-red-600 hover:text-red-800 text-xl" data-plan-id="{{ plan.plan_id }}" title="삭제">🗑️</button>
           </div>
@@ -77,9 +99,11 @@
         <div class="daily-plan-section hidden mt-6 border-t pt-6" data-plan-id="{{ plan.plan_id }}">
           <h4 class="font-semibold mb-4">일일 계획 편집</h4>
           
-          <div class="flex gap-2 mb-4">
+          <div class="flex w-full justify-end gap-2 mb-4">
             <button class="add-row-btn bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">+ 행 추가</button>
+            <button class="parse-daily-plan-btn bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">파싱</button>
             <button class="save-daily-plan-btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">저장</button>
+            <button class="print-daily-plan-btn bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">프린트</button>
             <button class="cancel-edit-btn bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm" data-plan-id="{{ plan.plan_id }}">취소</button>
           </div>
 
@@ -87,9 +111,10 @@
             <table class="w-full text-sm" id="daily-plan-table-{{ plan.plan_id }}">
               <thead class="bg-gray-50">
                 <tr>
-                  <th class="px-4 py-2 text-left">학습 날짜</th>
-                  <th class="px-4 py-2 text-left">순서</th>
+                  <th class="px-4 py-2 text-left w-20">순서</th>
+                  <th class="px-4 py-2 text-left w-36">학습 날짜</th>
                   <th class="px-4 py-2 text-left w-1/2">학습 내용 설명</th>
+                  <th class="px-4 py-2 text-left w-28">상태</th>
                   <th class="px-4 py-2 text-center">삭제</th>
                 </tr>
               </thead>
@@ -97,13 +122,19 @@
                 <!-- 예시 데이터 -->
                 <tr class="daily-plan-row">
                   <td class="px-4 py-2">
+                    <input type="number" class="border rounded px-2 py-1 w-16" value="34">
+                  </td>
+                  <td class="px-4 py-2">
                     <input type="date" class="border rounded px-2 py-1 w-full" value="2025-11-29">
                   </td>
                   <td class="px-4 py-2">
-                    <input type="number" class="border rounded px-2 py-1 w-20" value="34">
+                    <input type="text" class="border rounded px-2 py-1 w-full" value="10-2 Earth's Energy Balance" placeholder="학습 내용을 입력하세요">
                   </td>
                   <td class="px-4 py-2">
-                    <input type="text" class="border rounded px-2 py-1 w-full" value="10-2 Earth's Energy Balance" placeholder="학습 내용을 입력하세요">
+                    <select class="border rounded px-2 py-1 w-full">
+                      <option value="planned" selected>예정</option>
+                      <option value="done">완료</option>
+                    </select>
                   </td>
                   <td class="px-4 py-2 text-center">
                     <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
@@ -165,35 +196,55 @@
 
   <!-- 계획 수정 모달 -->
   <div id="editPlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 w-[460px] shadow-lg relative">
+    <div class="bg-white rounded-xl p-5 w-[700px] max-w-[calc(100vw-20px)] shadow-lg relative">
       <button id="closeEditPlanModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl">✕</button>
-      <h2 class="text-lg font-bold mb-4 text-center">학습 계획 수정</h2>
+      <h2 class="text-xl font-bold mb-6 text-center">계획 편집</h2>
 
       <input type="hidden" id="editPlanId">
 
-      <label class="block text-sm font-medium mb-1">계획 제목</label>
-      <input id="editPlanTitle" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: TOEFL 단어 외우기">
+      <label class="block text-sm font-medium mb-1.5">계획 제목</label>
+      <input id="editPlanTitle" type="text" class="w-full border rounded-lg px-3 py-2.5 mb-4 text-base" placeholder="예: TOEFL 단어 외우기">
 
-      <label class="block text-sm font-medium mb-1">과목명</label>
-      <input id="editPlanSubject" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: 영어">
+      <label class="block text-sm font-medium mb-1.5">과목명</label>
+      <input id="editPlanSubject" type="text" class="w-full border rounded-lg px-3 py-2.5 mb-4 text-base" placeholder="예: 영어">
 
-      <label class="block text-sm font-medium mb-1">이미지 URL</label>
-      <input id="editPlanImageUrl" type="text" class="w-full border rounded-lg px-3 py-2 mb-3" placeholder="예: https://example.com/image.jpg">
-
-      <div class="flex gap-4 mb-4">
-        <div class="flex-1">
-          <label class="block text-sm font-medium mb-1">시작일</label>
-          <input id="editPlanStart" type="date" class="w-full border rounded-lg px-3 py-2">
-        </div>
-        <div class="flex-1">
-          <label class="block text-sm font-medium mb-1">종료일</label>
-          <input id="editPlanEnd" type="date" class="w-full border rounded-lg px-3 py-2">
-        </div>
+      <label class="block text-sm font-medium mb-2">색상 선택</label>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <button type="button" class="color-swatch" data-color="#FCA5A5" style="background:#FCA5A5;"></button>
+        <button type="button" class="color-swatch" data-color="#FCD34D" style="background:#FCD34D;"></button>
+        <button type="button" class="color-swatch" data-color="#FDE68A" style="background:#FDE68A;"></button>
+        <button type="button" class="color-swatch" data-color="#86EFAC" style="background:#86EFAC;"></button>
+        <button type="button" class="color-swatch" data-color="#93C5FD" style="background:#93C5FD;"></button>
+        <button type="button" class="color-swatch" data-color="#C4B5FD" style="background:#C4B5FD;"></button>
+        <button type="button" class="color-swatch" data-color="#FED7C3" style="background:#FED7C3;"></button>
       </div>
 
-      <div class="flex justify-end gap-2">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-24 h-14 rounded-lg border-2 border-gray-300 flex items-center justify-center overflow-hidden bg-white">
+          <div id="editColorPreview" class="w-16 h-8 rounded-sm border border-gray-400" style="background:#EAEA3E;"></div>
+        </div>
+        <div class="flex-1">
+          <input id="editPlanColor" type="text" class="w-full border rounded-lg px-3 py-2.5 text-base uppercase" placeholder="#EAEA3E">
+        </div>
+        <div class="text-gray-500 text-sm">원하는 HEX 색상을 직접 입력할 수 있습니다.</div>
+      </div>
+
+      <div class="border-t pt-4 mt-5 flex justify-end gap-3">
         <button id="cancelEditPlan" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">취소</button>
         <button id="updatePlanBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="parsePlanModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-xl p-6 w-[560px] max-w-[calc(100vw-24px)] shadow-lg relative">
+      <button id="closeParsePlanModal" class="absolute top-3 right-4 text-gray-500 hover:text-gray-800 text-xl">✕</button>
+      <h2 class="text-xl font-bold mb-4 text-center">순서 / 내용 붙여넣기</h2>
+      <p class="text-sm text-gray-500 mb-3">붙여넣은 항목은 기존 행 뒤에 추가됩니다. 예: 1. 단어 외우기</p>
+      <textarea id="parsePlanText" rows="10" class="w-full border rounded-lg px-3 py-2 text-sm mb-4" placeholder="1. 단어 외우기\n2. 문법 정리\n3. 듣기 연습"></textarea>
+      <div class="flex justify-end gap-2">
+        <button id="cancelParsePlanBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">취소</button>
+        <button id="applyParsePlanBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">적용</button>
       </div>
     </div>
   </div>
@@ -211,8 +262,134 @@
     const closeEditPlanModalBtn = document.getElementById("closeEditPlanModal");
     const cancelNewPlanBtn = document.getElementById("cancelNewPlan");
     const cancelEditPlanBtn = document.getElementById("cancelEditPlan");
+    const parsePlanModal = document.getElementById("parsePlanModal");
+    const parsePlanText = document.getElementById("parsePlanText");
+    const closeParsePlanModalBtn = document.getElementById("closeParsePlanModal");
+    const cancelParsePlanBtn = document.getElementById("cancelParsePlanBtn");
+    const applyParsePlanBtn = document.getElementById("applyParsePlanBtn");
     const savePlanBtn = document.getElementById("savePlanBtn");
     const updatePlanBtn = document.getElementById("updatePlanBtn");
+    const editPlanColorInput = document.getElementById("editPlanColor");
+    const editColorPreview = document.getElementById("editColorPreview");
+    const plansData = {{ plans_json | safe }};
+    const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
+    const ownerFilterInput = document.getElementById("ownerFilter");
+    const clearOwnerFilterBtn = document.getElementById("clearOwnerFilter");
+    const showCompletedPlansCheckbox = document.getElementById("showCompletedPlans");
+    const hiddenCompletedHint = document.getElementById("hiddenCompletedHint");
+    const planCards = Array.from(document.querySelectorAll(".plan-card"));
+
+    let activeParsePlanId = null;
+
+    const defaultEditColor = "#EAEA3E";
+
+    function normalizeColor(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return defaultEditColor;
+      return raw.startsWith("#") ? raw.toUpperCase() : `#${raw.toUpperCase()}`;
+    }
+
+    function setEditColor(value) {
+      const nextColor = normalizeColor(value);
+      editPlanColorInput.value = nextColor;
+      editColorPreview.style.background = nextColor;
+      colorSwatches.forEach((swatch) => {
+        swatch.classList.toggle("ring-4", swatch.dataset.color === nextColor);
+        swatch.classList.toggle("ring-blue-500", swatch.dataset.color === nextColor);
+      });
+    }
+
+    colorSwatches.forEach((swatch) => {
+      swatch.addEventListener("click", () => {
+        setEditColor(swatch.dataset.color);
+      });
+    });
+
+    function applyFilters() {
+      const keyword = ownerFilterInput.value.trim().toLowerCase();
+      const showCompleted = showCompletedPlansCheckbox.checked;
+      let hiddenCompletedCount = 0;
+
+      planCards.forEach((card) => {
+        const owner = (card.dataset.planOwner || "").toLowerCase();
+        const ownerMatches = !keyword || keyword === "전체" || owner.includes(keyword);
+        const isCompleted = card.dataset.planCompleted === "1";
+        const completedMatches = showCompleted || !isCompleted;
+        const visible = ownerMatches && completedMatches;
+
+        if (ownerMatches && isCompleted && !showCompleted) {
+          hiddenCompletedCount += 1;
+        }
+
+        card.classList.toggle("hidden", !visible);
+      });
+
+      hiddenCompletedHint.textContent = hiddenCompletedCount > 0
+        ? `완료된 계획 ${hiddenCompletedCount}개는 숨김`
+        : "";
+    }
+
+    ownerFilterInput.addEventListener("input", applyFilters);
+    ownerFilterInput.addEventListener("change", applyFilters);
+    showCompletedPlansCheckbox.addEventListener("change", applyFilters);
+    clearOwnerFilterBtn.addEventListener("click", () => {
+      ownerFilterInput.value = "";
+      applyFilters();
+    });
+
+    applyFilters();
+
+    editPlanColorInput.addEventListener("input", () => {
+      setEditColor(editPlanColorInput.value);
+    });
+
+    function getTodayIsoDate() {
+      return new Date().toISOString().split("T")[0];
+    }
+
+    function parsePlanLines(text) {
+      const lines = String(text || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      return lines.map((line, index) => {
+        const match = line.match(/^(\d+)\s*[\.\)]?\s*[-:]?\s*(.+)$/);
+        if (match) {
+          return {
+            order: Number(match[1]) || index + 1,
+            description: match[2].trim()
+          };
+        }
+
+        const tabMatch = line.match(/^(\d+)\s*\t(.+)$/);
+        if (tabMatch) {
+          return {
+            order: Number(tabMatch[1]) || index + 1,
+            description: tabMatch[2].trim()
+          };
+        }
+
+        return {
+          order: index + 1,
+          description: line
+        };
+      });
+    }
+
+    function openParsePlanModal(planId) {
+      activeParsePlanId = planId;
+      parsePlanText.value = "";
+      parsePlanModal.classList.remove("hidden");
+      parsePlanModal.setAttribute("aria-hidden", "false");
+      parsePlanText.focus();
+    }
+
+    function closeParsePlanModal() {
+      activeParsePlanId = null;
+      parsePlanModal.classList.add("hidden");
+      parsePlanModal.setAttribute("aria-hidden", "true");
+    }
 
     // "새 계획 추가" 버튼 클릭
     openPlanChoiceModalBtn.addEventListener("click", () => {
@@ -296,18 +473,19 @@
     // 계획 수정 버튼
     document.querySelectorAll(".edit-plan-btn").forEach(btn => {
       btn.addEventListener("click", async (e) => {
-        const planId = e.target.dataset.planId;
+        const planId = e.currentTarget.dataset.planId;
         
         // plans 데이터에서 현재 계획 찾기
-        const plans = {{ plans_json | safe }};
-        const currentPlan = plans.find(p => p.plan_id == planId);
+        const currentPlan = plansData.find(p => p.plan_id == planId);
         
         if (currentPlan) {
           // 모달에 현재 값 채우기
           document.getElementById("editPlanId").value = planId;
           document.getElementById("editPlanTitle").value = currentPlan.title || '';
           document.getElementById("editPlanSubject").value = currentPlan.subject || '';
-          document.getElementById("editPlanImageUrl").value = currentPlan.image_url || '';
+          setEditColor(currentPlan.color || defaultEditColor);
+        } else {
+          setEditColor(defaultEditColor);
         }
         
         // 모달 열기
@@ -320,9 +498,7 @@
       const planId = document.getElementById("editPlanId").value;
       const title = document.getElementById("editPlanTitle").value.trim();
       const subject = document.getElementById("editPlanSubject").value.trim();
-      const imageUrl = document.getElementById("editPlanImageUrl").value.trim();
-      const start = document.getElementById("editPlanStart").value;
-      const end = document.getElementById("editPlanEnd").value;
+      const color = normalizeColor(editPlanColorInput.value);
 
       if (!title || !subject) {
         alert("제목과 과목은 필수 항목입니다!");
@@ -336,9 +512,7 @@
           body: JSON.stringify({
             title: title,
             subject: subject,
-            image_url: imageUrl,
-            start_date: start,
-            end_date: end
+            color: color
           })
         });
         
@@ -407,7 +581,9 @@
     // 일일 계획 편집 토글
     document.querySelectorAll(".toggle-daily-plan").forEach(btn => {
       btn.addEventListener("click", async (e) => {
-        const planId = e.target.dataset.planId;
+        const toggleBtn = e.currentTarget;
+        const planId = toggleBtn.dataset.planId;
+        const count = toggleBtn.dataset.count || "0";
         const section = document.querySelector(`.daily-plan-section[data-plan-id="${planId}"]`);
         
         if (section.classList.contains("hidden")) {
@@ -415,10 +591,10 @@
           await loadDailyPlans(planId);
           
           section.classList.remove("hidden");
-          e.target.textContent = `▲ 일일 계획 숨기기`;
+          toggleBtn.textContent = `▲ 상세계획 (${count})`;
         } else {
           section.classList.add("hidden");
-          e.target.textContent = `▼ 일일 계획 보기`;
+          toggleBtn.textContent = `▼ 상세계획 (${count})`;
         }
       });
     });
@@ -438,13 +614,19 @@
             newRow.className = "daily-plan-row";
             newRow.innerHTML = `
               <td class="px-4 py-2">
+                <input type="number" class="border rounded px-2 py-1 w-16" value="${plan.order || ''}">
+              </td>
+              <td class="px-4 py-2">
                 <input type="date" class="border rounded px-2 py-1 w-full" value="${plan.date || ''}">
               </td>
               <td class="px-4 py-2">
-                <input type="number" class="border rounded px-2 py-1 w-20" value="${plan.order || ''}">
+                <input type="text" class="border rounded px-2 py-1 w-full" value="${plan.description || ''}" placeholder="학습 내용을 입력하세요">
               </td>
               <td class="px-4 py-2">
-                <input type="text" class="border rounded px-2 py-1 w-full" value="${plan.description || ''}" placeholder="학습 내용을 입력하세요">
+                <select class="border rounded px-2 py-1 w-full">
+                  <option value="planned" ${plan.status === "done" ? "" : "selected"}>예정</option>
+                  <option value="done" ${plan.status === "done" ? "selected" : ""}>완료</option>
+                </select>
               </td>
               <td class="px-4 py-2 text-center">
                 <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
@@ -468,13 +650,19 @@
         newRow.className = "daily-plan-row";
         newRow.innerHTML = `
           <td class="px-4 py-2">
+            <input type="number" class="border rounded px-2 py-1 w-16" value="1">
+          </td>
+          <td class="px-4 py-2">
             <input type="date" class="border rounded px-2 py-1 w-full" value="${new Date().toISOString().split('T')[0]}">
           </td>
           <td class="px-4 py-2">
-            <input type="number" class="border rounded px-2 py-1 w-20" value="1">
+            <input type="text" class="border rounded px-2 py-1 w-full" placeholder="학습 내용을 입력하세요">
           </td>
           <td class="px-4 py-2">
-            <input type="text" class="border rounded px-2 py-1 w-full" placeholder="학습 내용을 입력하세요">
+            <select class="border rounded px-2 py-1 w-full">
+              <option value="planned" selected>예정</option>
+              <option value="done">완료</option>
+            </select>
           </td>
           <td class="px-4 py-2 text-center">
             <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
@@ -490,6 +678,65 @@
           }
         });
       });
+    });
+
+    // 파싱 버튼
+    document.querySelectorAll(".parse-daily-plan-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        openParsePlanModal(e.currentTarget.dataset.planId);
+      });
+    });
+
+    closeParsePlanModalBtn.addEventListener("click", closeParsePlanModal);
+    cancelParsePlanBtn.addEventListener("click", closeParsePlanModal);
+
+    parsePlanModal.addEventListener("click", (e) => {
+      if (e.target === parsePlanModal) {
+        closeParsePlanModal();
+      }
+    });
+
+    applyParsePlanBtn.addEventListener("click", () => {
+      if (!activeParsePlanId) {
+        return;
+      }
+
+      const rows = parsePlanLines(parsePlanText.value);
+      if (rows.length === 0) {
+        alert("붙여넣을 내용이 없습니다.");
+        return;
+      }
+
+      const tbody = document.querySelector(`#daily-plan-table-${activeParsePlanId} tbody`);
+      const today = getTodayIsoDate();
+
+      rows.forEach((item) => {
+        const newRow = document.createElement("tr");
+        newRow.className = "daily-plan-row";
+        newRow.innerHTML = `
+          <td class="px-4 py-2">
+            <input type="number" class="border rounded px-2 py-1 w-16" value="${item.order}">
+          </td>
+          <td class="px-4 py-2">
+            <input type="date" class="border rounded px-2 py-1 w-full" value="${today}">
+          </td>
+          <td class="px-4 py-2">
+            <input type="text" class="border rounded px-2 py-1 w-full" value="${item.description.replace(/"/g, '&quot;')}" placeholder="학습 내용을 입력하세요">
+          </td>
+          <td class="px-4 py-2">
+            <select class="border rounded px-2 py-1 w-full">
+              <option value="planned" selected>예정</option>
+              <option value="done">완료</option>
+            </select>
+          </td>
+          <td class="px-4 py-2 text-center">
+            <button class="delete-row-btn text-red-600 hover:text-red-800">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(newRow);
+      });
+
+      closeParsePlanModal();
     });
 
     // 행 삭제 버튼
@@ -510,11 +757,15 @@
         
         const dailyPlans = [];
         rows.forEach(row => {
-          const inputs = row.querySelectorAll("input");
+          const orderInput = row.querySelector('input[type="number"]');
+          const dateInput = row.querySelector('input[type="date"]');
+          const descriptionInput = row.querySelector('input[type="text"]');
+          const statusSelect = row.querySelector("select");
           dailyPlans.push({
-            date: inputs[0].value,
-            order: parseInt(inputs[1].value) || 0,
-            description: inputs[2].value
+            date: dateInput?.value || "",
+            order: parseInt(orderInput?.value) || 0,
+            description: descriptionInput?.value || "",
+            status: statusSelect?.value || "planned"
           });
         });
 
@@ -537,6 +788,101 @@
       });
     });
 
+    // 프린트 버튼
+    document.querySelectorAll(".print-daily-plan-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const planId = e.currentTarget.dataset.planId;
+        const currentPlan = plansData.find(p => String(p.plan_id) === String(planId));
+
+        function escapeHtml(value) {
+          return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        }
+
+        function statusText(status) {
+          const normalized = String(status || "planned");
+          if (normalized === "done") return "완료";
+          if (normalized === "partial") return "부분완료";
+          if (normalized === "missed") return "미실시";
+          return "예정";
+        }
+
+        try {
+          const response = await fetch(`/plan/${planId}/daily`);
+          const result = await response.json();
+          if (!response.ok || !result.ok) {
+            throw new Error(result.error || "일일 계획을 불러오지 못했습니다.");
+          }
+
+          const rows = (result.daily_plans || []).map((item) => `
+            <tr>
+              <td>${escapeHtml(item.order)}</td>
+              <td>${escapeHtml(item.date)}</td>
+              <td>${escapeHtml(item.description)}</td>
+              <td>${escapeHtml(statusText(item.status))}</td>
+            </tr>
+          `).join("");
+
+          const html = `
+            <!DOCTYPE html>
+            <html lang="ko">
+            <head>
+              <meta charset="UTF-8">
+              <title>학습 계획 출력</title>
+              <style>
+                @page { size: A4; margin: 14mm; }
+                body { font-family: 'Malgun Gothic', Arial, sans-serif; color: #111827; margin: 0; }
+                h1 { margin: 0 0 8px; font-size: 26px; }
+                .meta { margin: 0 0 14px; color: #4b5563; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                th, td { border: 1px solid #d1d5db; padding: 7px 8px; text-align: left; vertical-align: top; }
+                th { background: #f3f4f6; font-weight: 700; }
+              </style>
+            </head>
+            <body>
+              <h1>${escapeHtml(currentPlan?.title || "학습 계획")}</h1>
+              <p class="meta">과목: ${escapeHtml(currentPlan?.subject || "-")}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>순서</th>
+                    <th>학습 날짜</th>
+                    <th>학습 내용 설명</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </body>
+            </html>
+          `;
+
+          const printWindow = window.open("", "_blank", "width=1000,height=900");
+          if (!printWindow) {
+            throw new Error("팝업이 차단되어 인쇄창을 열 수 없습니다.");
+          }
+
+          printWindow.document.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        } catch (error) {
+          alert(error.message || "프린트 준비 중 오류가 발생했습니다.");
+        }
+      });
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !parsePlanModal.classList.contains("hidden")) {
+        closeParsePlanModal();
+      }
+    });
+
     // 취소 버튼
     document.querySelectorAll(".cancel-edit-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
@@ -545,7 +891,10 @@
         section.classList.add("hidden");
         
         const toggleBtn = document.querySelector(`.toggle-daily-plan[data-plan-id="${planId}"]`);
-        toggleBtn.textContent = `▼ 일일 계획 보기`;
+        const count = toggleBtn?.dataset.count || "0";
+        if (toggleBtn) {
+          toggleBtn.textContent = `▼ 상세계획 (${count})`;
+        }
       });
     });
   });
