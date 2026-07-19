@@ -27,18 +27,18 @@ def get_today_kst():
 def get_family_week_schedule(week_offset=0):
     """가족 대시보드용 주간 학습 일정 조회"""
     today = get_today_kst()
-    # 일요일 시작 주간
-    days_from_sunday = (today.weekday() + 1) % 7
-    week_start = today - timedelta(days=days_from_sunday) + timedelta(days=week_offset * 7)
+    # 월요일 시작 주간
+    days_from_monday = today.weekday()
+    week_start = today - timedelta(days=days_from_monday) + timedelta(days=week_offset * 7)
     week_end = week_start + timedelta(days=6)
 
-    weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     week_days = []
     day_map = {}
 
     for offset in range(7):
         day = week_start + timedelta(days=offset)
-        weekday_idx = (day.weekday() + 1) % 7
+        weekday_idx = day.weekday()
         day_item = {
             "iso_date": day.strftime("%Y-%m-%d"),
             "label": f"{weekday_names[weekday_idx]} {day.day}",
@@ -79,7 +79,8 @@ def get_family_week_schedule(week_offset=0):
     color_classes = ["rose", "mint", "sky", "peach", "lav"]
     user_color_map = {
         "권혁재": "sky",   # 파란색
-        "권유현": "rose"   # 분홍색
+        "권유현": "rose",  # 분홍색
+        "박영진": "yellow"  # 노란색
     }
 
     for row in rows:
@@ -138,14 +139,18 @@ def month_days(year, month):
     return days
 
 # DB에서 학습계획 가져오기
-def get_plans_from_db():
-    """데이터베이스에서 학습계획 조회 (로그인한 유저의 계획만)"""
+def get_plans_from_db(all_users=False):
+    """데이터베이스에서 학습계획 조회"""
     user_id = session.get('user_id', 1)
+    where_clause = "" if all_users else "WHERE p.user_id = :user_id"
+    params = {} if all_users else {"user_id": user_id}
+
     # 한 번의 쿼리로 모든 데이터 조회 (JOIN 사용)
-    query = text("""
+    query = text(f"""
         SELECT 
             p.plan_id,
             p.user_id,
+            u.user_name,
             p.title,
             p.subject,
             p.image_url,
@@ -164,12 +169,13 @@ def get_plans_from_db():
                 'planned'
             ) as status
         FROM dbo.study_plan p
+        INNER JOIN dbo.study_plan_user u ON u.user_id = p.user_id
         LEFT JOIN dbo.study_plan_task t ON p.plan_id = t.plan_id
-        WHERE p.user_id = :user_id
+        {where_clause}
         ORDER BY p.created_at DESC, t.plan_date, t.order_no
     """)
     
-    result = db.session.execute(query, {"user_id": user_id}).fetchall()
+    result = db.session.execute(query, params).fetchall()
     
     # 결과를 계획별로 그룹화
     plans_dict = {}
@@ -187,6 +193,7 @@ def get_plans_from_db():
             
             plans_dict[plan_id] = {
                 "plan_id": plan_id,
+                "user_name": row.user_name if hasattr(row, 'user_name') else "",
                 "title": row.title,
                 "subject": row.subject,
                 "image_url": row.image_url if hasattr(row, 'image_url') else None,
@@ -205,8 +212,27 @@ def get_plans_from_db():
                 "link_url": row.link_url,
                 "status": row.status
             })
-    
-    return list(plans_dict.values())
+
+    today = get_today_kst()
+    plans = list(plans_dict.values())
+
+    # 완료 기준: 계획 기간의 마지막 날짜가 오늘 이전이면 완료된 계획
+    for plan in plans:
+        latest_plan_date = None
+        for daily_plan in plan.get("daily_plans", []):
+            raw_date = daily_plan.get("date")
+            if not raw_date:
+                continue
+            try:
+                parsed_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if latest_plan_date is None or parsed_date > latest_plan_date:
+                latest_plan_date = parsed_date
+
+        plan["is_period_completed"] = bool(latest_plan_date and latest_plan_date < today)
+
+    return plans
 
 
 def is_plan_completed(plan):
@@ -393,12 +419,22 @@ def login():
 def family_overview():
     week_offset = request.args.get("week_offset", default=0, type=int)
     family_week = get_family_week_schedule(week_offset=week_offset)
+    members_query = text("""
+        SELECT user_name
+        FROM dbo.study_plan_user
+        WHERE user_name NOT IN ('guest', '가족')
+        ORDER BY user_name
+    """)
+    member_rows = db.session.execute(members_query).fetchall()
+    family_members = [row.user_name for row in member_rows]
+
     return render_template(
         "family_empty.html",
         week_days=family_week["week_days"],
         week_range_label=family_week["week_range_label"],
         family_total_tasks=family_week["total_tasks"],
-        week_offset=week_offset
+        week_offset=week_offset,
+        family_members=family_members
     )
 
 @app.route("/logout")
@@ -462,10 +498,11 @@ def index(year=2026):
     )
 
 @app.route("/manage_plan")
-@login_required
 def manage_plan():
     # DB에서 학습계획 가져오기
-    plans = get_plans_from_db()
+    plans = get_plans_from_db(all_users=True)
+
+    owner_names = sorted({p.get("user_name", "") for p in plans if p.get("user_name")})
     
     # 통계 계산
     total_plans = len(plans)
@@ -487,7 +524,8 @@ def manage_plan():
         "manage_plan.html",
         plans=plans,
         plans_json=json.dumps(plans),
-        stats=stats
+        stats=stats,
+        owner_names=owner_names
     )
 
 @app.route("/day/<day_id>")
@@ -669,6 +707,28 @@ def create_plan():
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
         selected_weekdays = data.get("selected_weekdays", [])
+        target_name = (data.get("target_name") or "").strip()
+
+        plan_user_id = user_id
+        if target_name:
+            # 가족 화면에서 이름을 직접 지정한 경우 해당 사용자로 계획을 저장
+            user_query = text("SELECT user_id FROM dbo.study_plan_user WHERE user_name = :username")
+            user_row = db.session.execute(user_query, {"username": target_name}).fetchone()
+
+            if user_row:
+                plan_user_id = user_row.user_id
+            else:
+                create_user_query = text("""
+                    INSERT INTO dbo.study_plan_user (user_name, created_at)
+                    VALUES (:username, SYSDATETIMEOFFSET())
+                """)
+                db.session.execute(create_user_query, {"username": target_name})
+                db.session.commit()
+
+                created_user = db.session.execute(user_query, {"username": target_name}).fetchone()
+                if not created_user:
+                    raise ValueError("사용자 생성에 실패했습니다.")
+                plan_user_id = created_user.user_id
         
         # 1. DB에 새 계획 추가 (색상 포함)
         color = data.get("color")
@@ -684,7 +744,7 @@ def create_plan():
         """)
         
         db.session.execute(insert_query, {
-            "user_id": user_id,
+            "user_id": plan_user_id,
             "title": title,
             "subject": subject,
             "image_url": image_url,
